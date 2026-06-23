@@ -8,7 +8,7 @@ import { log, logError, logWarn } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { RemoteGateway } from './gateway';
 import { MessageRouter } from './message-router';
-import { FeishuChannel } from './channels/feishu';
+import { TelegramChannel } from './channels/telegram';
 import { SlackChannel } from './channels/slack';
 import { remoteConfigStore } from './remote-config-store';
 import { tunnelManager, TunnelStatus } from './tunnel-manager';
@@ -16,7 +16,7 @@ import { buildRemoteSessionTitle } from './remote-title';
 import type {
   GatewayStatus,
   GatewayConfig,
-  FeishuChannelConfig,
+  TelegramChannelConfig,
   ChannelType,
   RemoteSessionMapping,
   PairedUser,
@@ -213,7 +213,7 @@ export class RemoteManager extends EventEmitter {
       const tunnelUrl = await tunnelManager.start(config.gateway.port);
       if (tunnelUrl) {
         log('[RemoteManager] Tunnel URL:', tunnelUrl);
-        log('[RemoteManager] Feishu Webhook URL:', `${tunnelUrl}/webhook/feishu`);
+        log('[RemoteManager] Telegram Webhook URL:', `${tunnelUrl}/webhook/telegram`);
       }
 
       log('[RemoteManager] Remote control system started');
@@ -299,9 +299,9 @@ export class RemoteManager extends EventEmitter {
   }
 
   /**
-   * Get Feishu webhook URL (from tunnel)
+   * Get Telegram webhook URL (from tunnel)
    */
-  getFeishuWebhookUrl(): string | null {
+  getTelegramWebhookUrl(): string | null {
     return tunnelManager.getWebhookUrl();
   }
 
@@ -318,16 +318,14 @@ export class RemoteManager extends EventEmitter {
   }
 
   /**
-   * Update feishu channel config
+   * Update Telegram channel config
    */
-  async updateFeishuConfig(config: FeishuChannelConfig): Promise<void> {
-    remoteConfigStore.setFeishuConfig(config);
+  async updateTelegramConfig(config: TelegramChannelConfig): Promise<void> {
+    remoteConfigStore.setTelegramConfig(config);
 
-    // Sync Feishu DM policy to gateway auth mode so checkAuthorization() matches.
-    // Note: gateway auth mode is a cross-channel setting — changing it here affects
-    // authorization for all channel types (feishu, telegram, etc.), not just Feishu.
-    // Skip sync if gateway is using token auth, as that would disable token protection
-    // for non-Feishu channels (e.g. WebSocket).
+    // Sync Telegram DM policy to gateway auth mode so checkAuthorization() matches.
+    // Note: gateway auth mode is a cross-channel setting and affects all channels.
+    // Skip sync if gateway is using token auth to preserve token protection.
     if (config.dm) {
       const currentGateway = remoteConfigStore.getGatewayConfig();
       const currentAuth = currentGateway.auth;
@@ -349,23 +347,23 @@ export class RemoteManager extends EventEmitter {
             });
             break;
           case 'allowlist': {
-            // Scope Feishu IDs and merge with existing entries (preserving other channels)
-            const feishuEntries = (config.dm.allowFrom ?? []).map((id) => `feishu:${id}`);
-            const nonFeishuEntries = (currentAuth.allowlist ?? []).filter(
-              (entry) => !entry.startsWith('feishu:')
+            // Scope Telegram IDs and merge with existing entries (preserving other channels)
+            const telegramEntries = (config.dm.allowFrom ?? []).map((id) => `telegram:${id}`);
+            const nonTelegramEntries = (currentAuth.allowlist ?? []).filter(
+              (entry) => !entry.startsWith('telegram:')
             );
-            // Include paired Feishu users so they retain access when switching from pairing mode
+            // Include paired Telegram users so they retain access when switching from pairing mode
             // (syncAllowlist() only populates allowlist when already in allowlist mode)
-            const pairedFeishuEntries = remoteConfigStore
+            const pairedTelegramEntries = remoteConfigStore
               .getPairedUsers()
-              .filter((u) => u.channelType === 'feishu')
-              .map((u) => `feishu:${u.userId}`);
+              .filter((u) => u.channelType === 'telegram')
+              .map((u) => `telegram:${u.userId}`);
             remoteConfigStore.setGatewayConfig({
               auth: {
                 ...currentAuth,
                 mode: 'allowlist',
                 allowlist: [
-                  ...new Set([...nonFeishuEntries, ...pairedFeishuEntries, ...feishuEntries]),
+                  ...new Set([...nonTelegramEntries, ...pairedTelegramEntries, ...telegramEntries]),
                 ],
               },
             });
@@ -509,7 +507,7 @@ export class RemoteManager extends EventEmitter {
 
     log('[RemoteManager] Handling question request for remote session:', remoteSessionId);
 
-    // Build question message for Feishu
+    // Build question message for remote channel
     let messageText = '🤔 **需要你的回答**\n\n';
 
     questions.forEach((q, _qIdx) => {
@@ -1116,26 +1114,26 @@ export class RemoteManager extends EventEmitter {
   private async registerChannels(config: RemoteConfig): Promise<void> {
     if (!this.gateway) return;
 
-    // Register Feishu channel if configured
-    const feishuConfig = config.channels.feishu;
-    if (feishuConfig && feishuConfig.appId && feishuConfig.appSecret) {
-      const feishuChannel = new FeishuChannel(feishuConfig);
-      this.gateway.registerChannel(feishuChannel);
+    // Register Telegram channel if configured
+    const telegramConfig = config.channels.telegram;
+    if (telegramConfig && telegramConfig.botToken) {
+      const telegramChannel = new TelegramChannel(telegramConfig);
+      this.gateway.registerChannel(telegramChannel);
 
       // Set up webhook handler
       this.gateway.on(
-        'webhook:feishu',
+        'webhook:telegram',
         (data: {
           headers: Record<string, string>;
           body: string;
           respond: (status: number, responseData: unknown) => void;
         }) => {
-          const result = feishuChannel.handleWebhook(data.headers, data.body);
+          const result = telegramChannel.handleWebhook(data.headers, data.body);
           data.respond(result.status, result.data);
         }
       );
 
-      log('[RemoteManager] Feishu channel registered');
+      log('[RemoteManager] Telegram channel registered');
     }
 
     // Register Slack channel if configured
@@ -1160,7 +1158,7 @@ export class RemoteManager extends EventEmitter {
       log('[RemoteManager] Slack channel registered');
     }
 
-    // TODO: Register other channels (WeChat, Telegram, DingTalk)
+    // TODO: Register other channels (WeChat, DingTalk)
   }
 
   /**

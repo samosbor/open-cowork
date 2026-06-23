@@ -46,7 +46,7 @@ src/
 │   ├── db/                  # SQLite schema and migrations
 │   ├── sandbox/             # Lima (macOS) / WSL2 (Windows) isolation
 │   ├── skills/              # Skill discovery and hot-reload
-│   ├── remote/              # Feishu/Lark bot integration
+│   ├── remote/              # Telegram bot integration
 │   └── schedule/            # Cron-like scheduled tasks
 └── renderer/                # React frontend
     ├── components/          # UI components

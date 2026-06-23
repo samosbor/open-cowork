@@ -1,6 +1,6 @@
 /**
  * Remote Control Settings Panel
- * Composes sub-components for Feishu/Lark bot remote control configuration.
+ * Composes sub-components for Telegram bot remote control configuration.
  */
 
 import { useState, useEffect } from 'react';
@@ -10,7 +10,7 @@ import { GatewayControlCard } from './remote/GatewayControlCard';
 import { PairingRequestsSection } from './remote/PairingRequestsSection';
 import { PairingGuideCard } from './remote/PairingGuideCard';
 import { ConfigStepNav } from './remote/ConfigStepNav';
-import { FeishuConfigStep } from './remote/FeishuConfigStep';
+import { TelegramConfigStep } from './remote/TelegramConfigStep';
 import { ConnectionConfigStep } from './remote/ConnectionConfigStep';
 import { AdvancedConfigStep } from './remote/AdvancedConfigStep';
 import { AuthorizedUsersSection } from './remote/AuthorizedUsersSection';
@@ -39,12 +39,11 @@ export function RemoteControlPanel({ isActive }: { isActive: boolean }) {
   const [isTogglingGateway, setIsTogglingGateway] = useState(false);
   const [error, setError] = useState<LocalizedBanner | null>(null);
   const [success, setSuccess] = useState<LocalizedBanner | null>(null);
-  const [activeStep, setActiveStep] = useState<ConfigStep>('feishu');
+  const [activeStep, setActiveStep] = useState<ConfigStep>('telegram');
 
   // Form state
-  const [feishuAppId, setFeishuAppId] = useState('');
-  const [feishuAppSecret, setFeishuAppSecret] = useState('');
-  const [feishuDmPolicy, setFeishuDmPolicy] = useState('pairing');
+  const [telegramBotToken, setTelegramBotToken] = useState('');
+  const [telegramDmPolicy, setTelegramDmPolicy] = useState('pairing');
   const [gatewayPort, setGatewayPort] = useState(18789);
   const [defaultWorkingDirectory, setDefaultWorkingDirectory] = useState('');
   const [autoApproveSafeTools, setAutoApproveSafeTools] = useState(true);
@@ -95,11 +94,10 @@ export function RemoteControlPanel({ isActive }: { isActive: boolean }) {
         setAutoApproveSafeTools(configResult.gateway?.autoApproveSafeTools !== false);
         setTunnelEnabled(configResult.gateway?.tunnel?.enabled || false);
         setNgrokAuthToken(configResult.gateway?.tunnel?.ngrok?.authToken || '');
-        if (configResult.channels?.feishu) {
-          setFeishuAppId(configResult.channels.feishu.appId || '');
-          setFeishuAppSecret(configResult.channels.feishu.appSecret || '');
-          setFeishuDmPolicy(configResult.channels.feishu.dm?.policy || 'pairing');
-          setUseLongConnection(configResult.channels.feishu.useWebSocket !== false);
+        if (configResult.channels?.telegram) {
+          setTelegramBotToken(configResult.channels.telegram.botToken || '');
+          setTelegramDmPolicy(configResult.channels.telegram.dm?.policy || 'pairing');
+          setUseLongConnection(!configResult.channels.telegram.webhookUrl);
         }
       }
     } catch (err) {
@@ -164,13 +162,14 @@ export function RemoteControlPanel({ isActive }: { isActive: boolean }) {
             : { enabled: false, type: 'ngrok' },
       });
 
-      if (feishuAppId && feishuAppSecret) {
-        await window.electronAPI.remote.updateFeishuConfig({
-          type: 'feishu',
-          appId: feishuAppId,
-          appSecret: feishuAppSecret,
-          useWebSocket: useLongConnection,
-          dm: { policy: feishuDmPolicy as 'open' | 'pairing' | 'allowlist' },
+      if (telegramBotToken) {
+        await window.electronAPI.remote.updateTelegramConfig({
+          type: 'telegram',
+          botToken: telegramBotToken,
+          webhookUrl: useLongConnection
+            ? undefined
+            : webhookUrl || `http://127.0.0.1:${gatewayPort}/webhook/telegram`,
+          dm: { policy: telegramDmPolicy as 'open' | 'pairing' | 'allowlist' },
         });
       }
 
@@ -233,17 +232,14 @@ export function RemoteControlPanel({ isActive }: { isActive: boolean }) {
     setTimeout(() => setSuccess(null), 2000);
   }
 
-  const isFeishuConfigured = !!(feishuAppId && feishuAppSecret);
+  const isTelegramConfigured = !!telegramBotToken;
   const isConnectionConfigured =
     useLongConnection || (tunnelEnabled && !!ngrokAuthToken) || !!tunnelStatus?.connected;
   const permissionSeparator = i18n.language.startsWith('zh') ? '、' : ', ';
   const permissionScopes = [
-    'im:resource',
-    'im:message',
-    'im:message:send_as_bot',
-    'im:message.group_at_msg:readonly',
-    'im:message.p2p_msg:readonly',
-    'contact:user.base:readonly',
+    'Bot API token from @BotFather',
+    '/setprivacy disabled (optional for group commands)',
+    'Allow bot in private chat and target groups',
   ];
 
   if (isLoading) {
@@ -275,36 +271,34 @@ export function RemoteControlPanel({ isActive }: { isActive: boolean }) {
         pairedUsers={pairedUsers}
         pendingPairings={pendingPairings}
         isTogglingGateway={isTogglingGateway}
-        isFeishuConfigured={isFeishuConfigured}
+        isTelegramConfigured={isTelegramConfigured}
         onToggle={toggleGateway}
       />
 
-      {status?.running && feishuDmPolicy === 'pairing' && <PairingGuideCard />}
+      {status?.running && telegramDmPolicy === 'pairing' && <PairingGuideCard />}
 
       <PairingRequestsSection
         pendingPairings={pendingPairings}
-        showEmpty={status?.running && feishuDmPolicy === 'pairing'}
+        showEmpty={status?.running && telegramDmPolicy === 'pairing'}
         onApprove={approvePairing}
         onReject={rejectPairing}
       />
 
       <ConfigStepNav
         activeStep={activeStep}
-        isFeishuConfigured={isFeishuConfigured}
+        isTelegramConfigured={isTelegramConfigured}
         isConnectionConfigured={isConnectionConfigured}
         onStepChange={setActiveStep}
       />
 
       {/* Configuration content */}
       <div className="p-6 rounded-[2rem] border border-border-subtle bg-background/60">
-        {activeStep === 'feishu' && (
-          <FeishuConfigStep
-            feishuAppId={feishuAppId}
-            feishuAppSecret={feishuAppSecret}
-            feishuDmPolicy={feishuDmPolicy}
-            onAppIdChange={setFeishuAppId}
-            onAppSecretChange={setFeishuAppSecret}
-            onDmPolicyChange={setFeishuDmPolicy}
+        {activeStep === 'telegram' && (
+          <TelegramConfigStep
+            telegramBotToken={telegramBotToken}
+            telegramDmPolicy={telegramDmPolicy}
+            onBotTokenChange={setTelegramBotToken}
+            onDmPolicyChange={setTelegramDmPolicy}
           />
         )}
         {activeStep === 'connection' && (

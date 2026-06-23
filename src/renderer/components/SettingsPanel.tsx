@@ -143,7 +143,7 @@ export function SettingsPanel({ onClose, initialTab = 'api' }: SettingsPanelProp
       id: 'remote' as TabId,
       label: t('settings.remote', '远程控制'),
       icon: Wifi,
-      description: t('settings.remoteDesc', '通过飞书等平台远程使用'),
+      description: t('settings.remoteDesc', '通过 Telegram 等平台远程使用'),
     },
     {
       id: 'logs' as TabId,

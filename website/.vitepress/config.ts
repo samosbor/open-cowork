@@ -16,7 +16,7 @@ const FEATURE_LIST = [
   'Built-in Skills for PPTX, DOCX, XLSX, and PDF workflows',
   'MCP integration for browsers, Notion, and other desktop tools',
   'GUI automation through computer use',
-  'Remote control through Feishu (Lark) and Slack',
+  'Remote control through Telegram and Slack',
   'Local-first operation with no Open Cowork telemetry',
 ];
 const FAQ_ITEMS = [
@@ -169,7 +169,7 @@ export default defineConfig({
       {
         name: 'keywords',
         content:
-          'Open Cowork, AI agent, desktop app, Claude Code, MCP, Skills, sandbox, open source, Windows, macOS, multi-model, PPTX generator, Feishu, Slack',
+          'Open Cowork, AI agent, desktop app, Claude Code, MCP, Skills, sandbox, open source, Windows, macOS, multi-model, PPTX generator, Telegram, Slack',
       },
     ],
     // Schema.org JSON-LD

@@ -20,7 +20,7 @@
     "skills",
     "pptx-generator",
     "docx",
-    "feishu",
+    "telegram",
     "slack",
     "multi-model"
   ],
@@ -67,7 +67,6 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@google/genai": "^1.44.0",
-    "@larksuiteoapi/node-sdk": "^1.59.0",
     "@mariozechner/pi-ai": "^0.60.0",
     "@mariozechner/pi-coding-agent": "^0.60.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
@@ -115,7 +114,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "4.1.5",
     "autoprefixer": "^10.5.0",
-    "electron": "^41.7.1",
+    "electron": "41.8.0",
     "electron-builder": "^26.8.1",
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",

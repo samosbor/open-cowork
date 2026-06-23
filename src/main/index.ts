@@ -53,7 +53,7 @@ import type {
 } from '../renderer/types';
 import { remoteManager, type AgentExecutor } from './remote/remote-manager';
 import { remoteConfigStore } from './remote/remote-config-store';
-import type { GatewayConfig, FeishuChannelConfig, ChannelType } from './remote/types';
+import type { GatewayConfig, TelegramChannelConfig, ChannelType } from './remote/types';
 import { startNavServer, stopNavServer } from './nav-server';
 import {
   ScheduledTaskManager,
@@ -2310,12 +2310,12 @@ ipcMain.handle('remote.updateGatewayConfig', async (_event, config: Partial<Gate
   }
 });
 
-ipcMain.handle('remote.updateFeishuConfig', async (_event, config: FeishuChannelConfig) => {
+ipcMain.handle('remote.updateTelegramConfig', async (_event, config: TelegramChannelConfig) => {
   try {
-    await remoteManager.updateFeishuConfig(config);
+    await remoteManager.updateTelegramConfig(config);
     return { success: true };
   } catch (error) {
-    logError('[Remote] Error updating Feishu config:', error);
+    logError('[Remote] Error updating Telegram config:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 });
@@ -2398,7 +2398,7 @@ ipcMain.handle('remote.getTunnelStatus', () => {
 
 ipcMain.handle('remote.getWebhookUrl', () => {
   try {
-    return remoteManager.getFeishuWebhookUrl();
+    return remoteManager.getTelegramWebhookUrl();
   } catch (error) {
     logError('[Remote] Error getting webhook URL:', error);
     return null;

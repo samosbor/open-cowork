@@ -39,7 +39,7 @@ All AI requests go through Claude Agent SDK directly.
 - `src/main/mcp/` - MCP server lifecycle (stdio, SSE, Streamable HTTP)
 - `src/main/session/` - Session CRUD, chat history
 - `src/main/sandbox/` - WSL2 (Windows) / Lima (macOS) isolation
-- `src/main/remote/` - Feishu/Lark bot integration
+- `src/main/remote/` - Telegram bot integration
 - `src/renderer/` - React frontend
 
 Key docs: `CLAUDE.md`, `README.md`

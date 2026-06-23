@@ -13,7 +13,7 @@ export { RemoteManager, remoteManager, type AgentExecutor, type RemoteInteractio
 
 // Channels
 export { ChannelBase } from './channels/channel-base';
-export { FeishuChannel, FeishuAPI } from './channels/feishu';
+export { TelegramChannel } from './channels/telegram';
 
 // Config
 export { remoteConfigStore } from './remote-config-store';

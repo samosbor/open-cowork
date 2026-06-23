@@ -53,7 +53,7 @@ features:
     details: Control and automate desktop GUI applications via computer use. Recommended model — Gemini-3-Pro for best results.
   - icon: 📡
     title: Remote Control
-    details: Send commands and receive results via Feishu (Lark) and Slack integration. Automate workflows across collaboration platforms.
+    details: Send commands and receive results via Telegram and Slack integration. Automate workflows across collaboration platforms.
   - icon: 🛡️
     title: Free & Open Source
     details: MIT licensed. Fully transparent codebase. Your data stays local — no telemetry, no data sent to Open Cowork servers.

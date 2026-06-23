@@ -13,7 +13,7 @@ First stable release of the 3.3.x series. Graduated from 9 beta releases with 30
 
 ### Added
 
-- Pairing mode UI guidance and approval panel for Feishu remote control (#109)
+- Pairing mode UI guidance and approval panel for Telegram remote control (#109)
 - Official project website with VitePress (#122)
 - Codex-powered PR review bot with GPT-5.3-codex (#94)
 - Codex issue auto-response workflow (#95)
@@ -24,8 +24,8 @@ First stable release of the 3.3.x series. Graduated from 9 beta releases with 30
 
 ### Fixed
 
-- Feishu DM policy now correctly syncs to gateway auth mode (#107)
-- Feishu WebSocket connection failures (#93, #105)
+- Telegram DM policy now correctly syncs to gateway auth mode (#107)
+- Telegram WebSocket connection failures (#93, #105)
 - Screenshot tool results display as images instead of bloating text context (#135, #124)
 - GUI tool-result image deduplication via content hashing
 - Gemini and other providers: empty probe response handling (#88)
@@ -66,7 +66,7 @@ First stable release of the 3.3.x series. Graduated from 9 beta releases with 30
 - VM sandbox security against command injection and symlink attacks (WSL2 & Lima)
 - MCP server staging and lifecycle issues for external tool integration
 - Skills ENOTDIR error when built-in skills (PPTX, DOCX, PDF, XLSX) symlink into .asar archive
-- Remote gateway null check in `loadPairedUsers` for Feishu/Slack integration
+- Remote gateway null check in `loadPairedUsers` for Telegram/Slack integration
 - Scrypt `maxmem` parameter for startup key derivation performance
 - CI pipeline stabilization for cross-platform builds
 

@@ -129,12 +129,12 @@ export function ConnectionConfigStep({
               </label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 px-3 py-2 bg-surface-hover rounded-lg text-sm font-mono text-text-secondary truncate">
-                  http://127.0.0.1:{gatewayPort}/webhook/feishu
+                  http://127.0.0.1:{gatewayPort}/webhook/telegram
                 </code>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onCopy(`http://127.0.0.1:${gatewayPort}/webhook/feishu`);
+                    onCopy(`http://127.0.0.1:${gatewayPort}/webhook/telegram`);
                   }}
                   className="p-2 rounded-lg hover:bg-surface-active transition-colors"
                 >

@@ -10,7 +10,7 @@ describe('RemoteControlPanel links', () => {
     expect(panelContent).not.toContain('一键配置权限');
   });
 
-  it('does not include the feishu auth url', () => {
-    expect(panelContent).not.toContain('open.feishu.cn/app/cli_a90ad18f0f39dcc6/auth');
+  it('includes BotFather setup link', () => {
+    expect(panelContent).toContain('https://t.me/BotFather');
   });
 });

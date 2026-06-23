@@ -1,5 +1,5 @@
 /**
- * QuickStartGuide — step-by-step setup guide for Feishu/Lark bot integration
+ * QuickStartGuide — step-by-step setup guide for Telegram bot integration
  */
 
 import { useTranslation } from 'react-i18next';

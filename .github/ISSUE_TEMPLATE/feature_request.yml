@@ -42,7 +42,7 @@ body:
         - Skills
         - UI / UX
         - Sandbox (Lima / WSL2)
-        - Remote / Feishu integration
+        - Remote / Telegram integration
         - Build / Packaging
         - Other
     validations:

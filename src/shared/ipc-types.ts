@@ -65,22 +65,18 @@ export type McpPresetsMap = Record<
 // ---------------------------------------------------------------------------
 
 /** Slim channel-type union (mirrors ChannelType in remote/types.ts). */
-export type RemoteChannelType = 'feishu' | 'wechat' | 'telegram' | 'dingtalk' | 'websocket';
+export type RemoteChannelType = 'wechat' | 'telegram' | 'dingtalk' | 'websocket';
 
-/** Feishu channel configuration (mirrors FeishuChannelConfig in remote/types.ts). */
-export interface FeishuChannelConfig {
-  type: 'feishu';
-  appId: string;
-  appSecret: string;
-  verificationToken?: string;
-  encryptKey?: string;
-  useWebSocket?: boolean;
+/** Telegram channel configuration (mirrors TelegramChannelConfig in remote/types.ts). */
+export interface TelegramChannelConfig {
+  type: 'telegram';
+  botToken: string;
+  webhookUrl?: string;
   dm: {
     policy: 'open' | 'pairing' | 'allowlist';
     allowFrom?: string[];
   };
   groups?: Record<string, { requireMention: boolean; allowFrom?: string[] }>;
-  defaultGroupSettings?: { requireMention: boolean };
 }
 
 /** Gateway authentication config. */
@@ -120,9 +116,8 @@ export interface GatewayConfig {
 export interface RemoteConfig {
   gateway: GatewayConfig;
   channels: {
-    feishu?: FeishuChannelConfig;
     wechat?: Record<string, unknown>;
-    telegram?: Record<string, unknown>;
+    telegram?: TelegramChannelConfig;
     dingtalk?: Record<string, unknown>;
     websocket?: Record<string, unknown>;
   };
