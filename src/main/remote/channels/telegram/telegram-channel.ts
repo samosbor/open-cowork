@@ -4,7 +4,7 @@
  */
 
 import { ChannelBase, withRetry } from '../channel-base';
-import { log, logError, logWarn } from '../../../utils/logger';
+import { logError, logWarn } from '../../../utils/logger';
 import type {
   TelegramChannelConfig,
   RemoteMessage,

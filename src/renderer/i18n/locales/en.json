@@ -136,6 +136,7 @@
     "settingsSubtitle": "Manage provider, key, and model settings",
     "configSet": "Config Set",
     "defaultSetTag": "Default",
+    "defaultSetName": "Default Profile",
     "saveAs": "Save As",
     "renameSet": "Rename",
     "deleteSet": "Delete Set",

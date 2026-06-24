@@ -39,11 +39,28 @@ const ABI = `cp${PYTHON_MINOR.replace('.', '')}`; // e.g. 3.12 -> cp312
 
 const GITHUB_REPO = process.env.OPEN_COWORK_PYTHON_STANDALONE_REPO || 'astral-sh/python-build-standalone';
 const RUNTIME_VERSION_FILENAME = 'runtime-version.txt';
-const BUNDLED_GUI_PACKAGES = [
+// Packages bundled for every platform.
+const BUNDLED_GUI_PACKAGES_COMMON = [
   'pillow',
+];
+// macOS-only packages. pyobjc/Quartz are Apple frameworks with no Linux/Windows
+// wheels, so requesting them on other platforms makes pip fail with
+// "No matching distribution found".
+const BUNDLED_GUI_PACKAGES_DARWIN = [
   'pyobjc-framework-Quartz',
 ];
-const BUNDLED_RUNTIME_FINGERPRINT = BUNDLED_GUI_PACKAGES.join('|');
+
+/** Resolve the package list to install for a given target platform. */
+function getBundledGuiPackages(platform) {
+  return platform === 'darwin'
+    ? [...BUNDLED_GUI_PACKAGES_COMMON, ...BUNDLED_GUI_PACKAGES_DARWIN]
+    : [...BUNDLED_GUI_PACKAGES_COMMON];
+}
+
+/** Stable fingerprint of the installed package set, used to skip re-installs. */
+function getRuntimeFingerprint(platform) {
+  return getBundledGuiPackages(platform).join('|');
+}
 // Use the correct GitHub API endpoint (v3, no trailing slash)
 const RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=30`;
 
@@ -323,21 +340,22 @@ function ensurePipAvailable(pythonBin) {
   }
 }
 
-function installPackages(siteDir, platformTag, pythonBin) {
+function installPackages(siteDir, platformTag, pythonBin, platform) {
   ensureDir(siteDir);
 
   const pipPython = process.env.OPEN_COWORK_PIP_PYTHON || pythonBin;
-  const packageSpecs = [...BUNDLED_GUI_PACKAGES];
+  const packageSpecs = getBundledGuiPackages(platform);
+  const fingerprint = getRuntimeFingerprint(platform);
   const pythonRoot = path.resolve(siteDir, '..');
   const runtimeMarkerFile = resolveRuntimeVersionFile(pythonRoot);
   const runtimeMarker = exists(runtimeMarkerFile)
     ? fs.readFileSync(runtimeMarkerFile, 'utf-8').trim()
     : '';
 
-  // Avoid re-install if already present
+  // Avoid re-install if already present. Quartz is only expected on macOS.
   const hasPillow = exists(path.join(siteDir, 'PIL'));
-  const hasQuartz = exists(path.join(siteDir, 'Quartz'));
-  if (hasPillow && hasQuartz && runtimeMarker === BUNDLED_RUNTIME_FINGERPRINT) {
+  const hasQuartz = platform === 'darwin' ? exists(path.join(siteDir, 'Quartz')) : true;
+  if (hasPillow && hasQuartz && runtimeMarker === fingerprint) {
     console.log(`✓ Python packages already present in ${siteDir}`);
     return;
   }
@@ -354,7 +372,7 @@ function installPackages(siteDir, platformTag, pythonBin) {
     `${packageSpecs.map((pkg) => JSON.stringify(pkg)).join(' ')}`;
 
   execSync(cmd, { stdio: 'inherit' });
-  fs.writeFileSync(runtimeMarkerFile, BUNDLED_RUNTIME_FINGERPRINT, 'utf-8');
+  fs.writeFileSync(runtimeMarkerFile, fingerprint, 'utf-8');
 }
 
 /**
@@ -513,7 +531,7 @@ async function preparePlatformArch(platform, arch) {
   }
 
   // Install packages for GUI automation
-  installPackages(siteDir, target.platformTag, pythonBin);
+  installPackages(siteDir, target.platformTag, pythonBin, platform);
 
   // Clean site-packages of non-whitelisted packages (also runs after pip install)
   cleanPythonRuntime(destDir, siteDir);

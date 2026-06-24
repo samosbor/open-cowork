@@ -52,18 +52,27 @@ export function ApiConfigSetManager(props: ApiConfigSetManagerProps) {
   const [renameName, setRenameName] = useState('');
   const [isInlineRenaming, setIsInlineRenaming] = useState(false);
 
+  const resolveSetName = (set: ApiConfigSet | null | undefined): string => {
+    if (!set) {
+      return '';
+    }
+    return set.isSystem ? t('api.defaultSetName') : set.name;
+  };
+
   useEffect(() => {
     setActiveLocalDialog('none');
-    setRenameName(currentConfigSet?.name || '');
+    setRenameName(resolveSetName(currentConfigSet));
     setIsInlineRenaming(false);
   }, [activeConfigSetId, currentConfigSet?.name]);
 
-  const pendingActionMessage = t('api.unsavedSwitchPrompt', { name: pendingConfigSet?.name || '-' });
+  const pendingActionMessage = t('api.unsavedSwitchPrompt', {
+    name: resolveSetName(pendingConfigSet) || '-',
+  });
   const hasDialogOpen = activeLocalDialog !== 'none';
   const canRenameCurrentConfigSet = Boolean(currentConfigSet);
 
   const cancelInlineRename = () => {
-    setRenameName(currentConfigSet?.name || '');
+    setRenameName(resolveSetName(currentConfigSet));
     setIsInlineRenaming(false);
   };
 
@@ -74,13 +83,13 @@ export function ApiConfigSetManager(props: ApiConfigSetManagerProps) {
     }
     const nextName = renameName.trim();
     if (!nextName || nextName === currentConfigSet.name) {
-      setRenameName(currentConfigSet.name);
+      setRenameName(resolveSetName(currentConfigSet));
       setIsInlineRenaming(false);
       return;
     }
     const renamed = await onRenameSet(currentConfigSet.id, nextName);
     if (renamed === false) {
-      setRenameName(currentConfigSet.name);
+      setRenameName(resolveSetName(currentConfigSet));
       return;
     }
     setIsInlineRenaming(false);
@@ -126,7 +135,9 @@ export function ApiConfigSetManager(props: ApiConfigSetManagerProps) {
           >
             {configSets.map((set) => (
               <option key={set.id} value={set.id}>
-                {set.isSystem ? `${set.name} (${t('api.defaultSetTag')})` : set.name}
+                {set.isSystem
+                  ? `${t('api.defaultSetName')} (${t('api.defaultSetTag')})`
+                  : set.name}
               </option>
             ))}
           </select>
@@ -159,7 +170,7 @@ export function ApiConfigSetManager(props: ApiConfigSetManagerProps) {
               if (!currentConfigSet) {
                 return;
               }
-              setRenameName(currentConfigSet.name);
+              setRenameName(resolveSetName(currentConfigSet));
               setIsInlineRenaming(true);
             }}
             disabled={isMutatingConfigSet || !canRenameCurrentConfigSet || hasDialogOpen || isInlineRenaming}
@@ -184,7 +195,7 @@ export function ApiConfigSetManager(props: ApiConfigSetManagerProps) {
       {activeLocalDialog === 'delete' && currentConfigSet && (
         <div className="space-y-3 rounded-lg border border-error/30 bg-error/10 px-3 py-3">
           <p className="text-xs text-text-primary">
-            {t('api.configSetDeleteConfirm', { name: currentConfigSet.name })}
+            {t('api.configSetDeleteConfirm', { name: resolveSetName(currentConfigSet) })}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <button
