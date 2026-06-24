@@ -138,6 +138,9 @@ nsis:
   allowToChangeInstallationDirectory: true
   include: installer.nsh
   warningsAsErrors: false
+  # Create shortcuts on install.
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
   # Preserve user config/history by default; offer explicit cleanup tooling instead of destructive uninstall.
   deleteAppDataOnUninstall: false
 
