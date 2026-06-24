@@ -1,0 +1,162 @@
+name: Build Windows
+
+# On-demand Windows installer build.
+#
+# Unlike release.yml (which only runs on `v*` tags and publishes a draft
+# GitHub Release), this workflow lets you produce a Windows NSIS installer
+# at any time and download it as a build artifact — without cutting a release.
+#
+# Triggers:
+#   - Manually from the Actions tab (workflow_dispatch)
+#   - On pull requests that touch build-critical files, so packaging
+#     regressions are caught before they reach a release tag.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (branch, tag, or SHA) to build'
+        required: false
+        default: ''
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'electron-builder.yml'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'tsconfig.node.json'
+      - 'scripts/**'
+      - 'resources/**'
+      - 'src/main/**'
+      - 'src/preload/**'
+      - '.github/workflows/build-windows.yml'
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    name: Build Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cache Electron
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ~/AppData/Local/electron/Cache
+          key: electron-win-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-win-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Node binaries
+        run: node scripts/download-node.js
+
+      - name: Prepare Python runtime
+        run: node scripts/prepare-python.js
+
+      - name: Build WSL agent
+        run: npm run build:wsl-agent
+
+      - name: Build MCP servers
+        run: npm run build:mcp
+
+      - name: TypeScript compile
+        run: npx tsc
+
+      - name: Vite build
+        run: npx vite build
+
+      - name: Electron Builder (NSIS)
+        run: npx electron-builder --win nsis --publish never
+
+      # Verify critical resources are present in the packaged app.
+      - name: Smoke test - verify packaged resources
+        shell: pwsh
+        run: |
+          $unpackedDir = "release\win-unpacked"
+          if (-not (Test-Path $unpackedDir)) {
+            Write-Host "::error::win-unpacked directory not found"
+            exit 1
+          }
+
+          $resourcesDir = Join-Path $unpackedDir "resources"
+          Write-Host "Checking resources in: $resourcesDir"
+
+          $checks = @(
+            "mcp\gui-operate-server.js",
+            "mcp\software-dev-server-example.js",
+            "node\node.exe",
+            "wsl-agent\index.js",
+            "skills"
+          )
+
+          $failed = $false
+          foreach ($check in $checks) {
+            $fullPath = Join-Path $resourcesDir $check
+            if (Test-Path $fullPath) {
+              Write-Host "  OK: $check"
+            } else {
+              Write-Host "::error::Missing resource: $check"
+              $failed = $true
+            }
+          }
+
+          if ($failed) {
+            Write-Host "::error::Packaged app is missing critical resources"
+            exit 1
+          }
+          Write-Host "All packaged resources verified."
+
+      - name: Smoke test - launch app
+        shell: pwsh
+        run: |
+          $unpackedDir = "release\win-unpacked"
+          $exe = Get-ChildItem -Path $unpackedDir -Filter "*.exe" | Where-Object { $_.Name -notmatch 'Uninstall' } | Select-Object -First 1
+          if (-not $exe) {
+            Write-Host "::error::No exe found in win-unpacked"
+            exit 1
+          }
+          Write-Host "Launching: $($exe.FullName) --smoke-test"
+          $proc = Start-Process -FilePath $exe.FullName -ArgumentList "--smoke-test" -PassThru
+          if (-not $proc.WaitForExit(30000)) {
+            $proc.Kill($true)
+            Write-Host "::error::Launch smoke test timed out after 30s"
+            exit 1
+          }
+          if ($proc.ExitCode -eq 0) {
+            Write-Host "Launch smoke test passed"
+          } else {
+            Write-Host "::error::Launch smoke test failed with exit code $($proc.ExitCode)"
+            exit 1
+          }
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: open-cowork-windows-installer
+          path: |
+            release/*.exe
+          retention-days: 14
+          if-no-files-found: error
+
+      # Auto-update manifest (only present when a publish provider is configured).
+      - name: Upload update manifest
+        if: ${{ hashFiles('release/latest.yml') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: open-cowork-windows-update-manifest
+          path: release/latest.yml
+          retention-days: 14
+          if-no-files-found: ignore
