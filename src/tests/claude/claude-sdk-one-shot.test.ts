@@ -87,4 +87,84 @@ describe('runPiAiOneShot', () => {
       maxTokens: 1234,
     });
   });
+
+  it('drops temperature for OpenAI GPT-5 / o-series models', async () => {
+    const config = makeConfig();
+    config.model = 'gpt-5.4';
+
+    await runPiAiOneShot('hello', 'system', config, {
+      temperature: 0,
+      maxTokens: 1234,
+    });
+
+    expect(completeSimpleMock).toHaveBeenCalledTimes(1);
+    const passedOptions = completeSimpleMock.mock.calls[0][2];
+    expect(passedOptions).not.toHaveProperty('temperature');
+    // Other options are preserved.
+    expect(passedOptions).toMatchObject({ apiKey: 'test-key', maxTokens: 1234 });
+  });
+
+  it('drops temperature for o3 reasoning models', async () => {
+    const config = makeConfig();
+    config.model = 'o3';
+
+    await runPiAiOneShot('hello', 'system', config, {
+      temperature: 0,
+    });
+
+    const passedOptions = completeSimpleMock.mock.calls[0][2];
+    expect(passedOptions).not.toHaveProperty('temperature');
+  });
+
+  it('keeps temperature for standard OpenAI chat models', async () => {
+    const config = makeConfig();
+    config.model = 'gpt-4o-mini';
+
+    await runPiAiOneShot('hello', 'system', config, {
+      temperature: 0.5,
+    });
+
+    const passedOptions = completeSimpleMock.mock.calls[0][2];
+    expect(passedOptions).toMatchObject({ temperature: 0.5 });
+  });
+
+  it('drops temperature for Anthropic Claude Opus 4.7+ (deprecated)', async () => {
+    for (const model of ['claude-opus-4-7', 'claude-opus-4-8']) {
+      completeSimpleMock.mockClear();
+      const config = makeConfig();
+      config.provider = 'anthropic';
+      config.customProtocol = undefined;
+      config.baseUrl = 'https://api.anthropic.com';
+      config.model = model;
+
+      await runPiAiOneShot('hello', 'system', config, {
+        temperature: 0,
+      });
+
+      const passedOptions = completeSimpleMock.mock.calls[0][2];
+      expect(passedOptions, `temperature should be dropped for ${model}`).not.toHaveProperty(
+        'temperature'
+      );
+    }
+  });
+
+  it('keeps temperature for Anthropic Claude Opus 4.6 and Sonnet', async () => {
+    for (const model of ['claude-opus-4-6', 'claude-sonnet-4-6']) {
+      completeSimpleMock.mockClear();
+      const config = makeConfig();
+      config.provider = 'anthropic';
+      config.customProtocol = undefined;
+      config.baseUrl = 'https://api.anthropic.com';
+      config.model = model;
+
+      await runPiAiOneShot('hello', 'system', config, {
+        temperature: 0.3,
+      });
+
+      const passedOptions = completeSimpleMock.mock.calls[0][2];
+      expect(passedOptions, `temperature should be kept for ${model}`).toMatchObject({
+        temperature: 0.3,
+      });
+    }
+  });
 });

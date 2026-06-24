@@ -33,6 +33,64 @@ const PROBE_ACK = 'sdk_probe_ok';
 const LOCAL_ANTHROPIC_PLACEHOLDER_KEY = 'sk-ant-local-proxy';
 const LOCAL_GEMINI_PLACEHOLDER_KEY = 'sk-gemini-local-proxy';
 
+// Some models reject a non-default `temperature` (returning a 400 / deprecation
+// warning that spams the logs and the memory feature). We detect them so we can
+// omit the parameter entirely. Two known families:
+//
+//   1. OpenAI GPT-5 family and o1/o3/o4 reasoning models.
+//   2. Anthropic Claude Opus 4.7 and newer — Anthropic deprecated `temperature`
+//      (and top_p/top_k) for Opus 4.7+, rejecting any presence of the field.
+//      Opus 4.6 and earlier, and Sonnet/Haiku, still accept it.
+const OPENAI_NO_CUSTOM_TEMPERATURE_MODEL_PATTERN =
+  /(?:^|[/_-])(?:gpt-5|o1|o3|o4)(?:$|[-:_.]|\b)/i;
+
+// Matches Anthropic Opus 4.x ids and captures the minor version, e.g.
+// "claude-opus-4-8" -> 8, "anthropic.claude-opus-4-7-v1" -> 7.
+const ANTHROPIC_OPUS_4_MINOR_PATTERN = /claude-opus-4-(\d+)/i;
+const ANTHROPIC_OPUS_TEMPERATURE_DEPRECATED_MINOR = 7;
+
+// pi-ai `api` values that route through the OpenAI request format.
+const OPENAI_FAMILY_APIS = new Set([
+  'openai-completions',
+  'openai-responses',
+  'azure-openai-responses',
+  'openai-codex-responses',
+]);
+
+/**
+ * Whether the resolved model accepts a custom `temperature`.
+ *
+ * Returns false for:
+ *  - OpenAI GPT-5 / o-series reasoning models (OpenAI request family only), and
+ *  - Anthropic Claude Opus 4.7+ (which reject any `temperature` with a 400).
+ */
+function modelSupportsCustomTemperature(model: {
+  id?: string;
+  api?: string;
+  provider?: string;
+}): boolean {
+  const id = model.id || '';
+
+  // Anthropic Claude Opus 4.7+ deprecated temperature (and top_p/top_k).
+  const opusMatch = id.match(ANTHROPIC_OPUS_4_MINOR_PATTERN);
+  if (opusMatch) {
+    const minor = Number.parseInt(opusMatch[1], 10);
+    if (Number.isFinite(minor) && minor >= ANTHROPIC_OPUS_TEMPERATURE_DEPRECATED_MINOR) {
+      return false;
+    }
+    return true;
+  }
+
+  // OpenAI GPT-5 / o-series reasoning models (scoped to the OpenAI request family).
+  const isOpenAiFamily =
+    (model.api && OPENAI_FAMILY_APIS.has(model.api)) || model.provider === 'openai';
+  if (isOpenAiFamily && OPENAI_NO_CUSTOM_TEMPERATURE_MODEL_PATTERN.test(id)) {
+    return false;
+  }
+
+  return true;
+}
+
 function resolveProbeBaseUrl(input: ApiTestInput): string | undefined {
   const configured = input.baseUrl?.trim();
   if (configured) return configured;
@@ -241,6 +299,19 @@ export async function runPiAiOneShot(
   // Use pi-ai's completeSimple for a one-shot call
   // Pass apiKey directly in options — completeSimple uses options.apiKey || env var
   const userMsg: PiUserMessage = { role: 'user', content: prompt, timestamp: Date.now() };
+
+  // Omit `temperature` for models that only support the default value (reasoning
+  // / GPT-5 / o-series). Otherwise the provider warns that temperature is
+  // deprecated/unsupported, spamming the logs and memory feature.
+  const callOptions = { ...options, apiKey: apiKey || undefined };
+  if (callOptions.temperature !== undefined && !modelSupportsCustomTemperature(resolvedModel)) {
+    log(
+      '[OneShot] Dropping unsupported temperature for model:',
+      resolvedModel.id
+    );
+    delete callOptions.temperature;
+  }
+
   log(
     '[OneShot] Calling completeSimple:',
     resolvedModel.provider,
@@ -256,7 +327,7 @@ export async function runPiAiOneShot(
       systemPrompt,
       messages: [userMsg],
     },
-    { ...options, apiKey: apiKey || undefined }
+    callOptions
   );
 
   // pi-ai resolves (not rejects) on provider errors — the error details
