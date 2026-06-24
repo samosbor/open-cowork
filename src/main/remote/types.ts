@@ -1,6 +1,6 @@
 /**
  * Remote Control Types
- * 远程控制模块类型定义
+ * Type definitions for the remote control module (Telegram-focused).
  */
 
 // Types are defined locally in this file
@@ -77,7 +77,9 @@ export interface TunnelConfig {
 // Channel Configuration
 // ============================================================================
 
-export type ChannelType = 'wechat' | 'telegram' | 'dingtalk' | 'websocket' | 'slack';
+// 'telegram' is the supported messaging channel. 'websocket' is reserved for
+// direct clients of the local gateway control plane (not a configurable channel).
+export type ChannelType = 'telegram' | 'websocket';
 
 export interface ChannelConfig {
   /** Channel type */
@@ -87,37 +89,7 @@ export interface ChannelConfig {
   enabled: boolean;
 
   /** Channel-specific configuration */
-  config:
-    | WechatChannelConfig
-    | TelegramChannelConfig
-    | DingtalkChannelConfig
-    | WebSocketChannelConfig
-    | SlackChannelConfig;
-}
-
-// WeChat Channel (via wechaty)
-export interface WechatChannelConfig {
-  type: 'wechat';
-
-  /** Wechaty puppet type */
-  puppet?: 'wechaty-puppet-wechat' | 'wechaty-puppet-padlocal';
-
-  /** Puppet token (for paid puppets) */
-  puppetToken?: string;
-
-  /** DM policy */
-  dm: {
-    policy: 'open' | 'pairing' | 'allowlist';
-    allowFrom?: string[];
-  };
-
-  /** Group configuration */
-  groups?: {
-    [roomId: string]: {
-      requireMention: boolean;
-      allowFrom?: string[];
-    };
-  };
+  config: TelegramChannelConfig | WebSocketChannelConfig;
 }
 
 // Telegram Channel
@@ -145,66 +117,7 @@ export interface TelegramChannelConfig {
   };
 }
 
-// DingTalk (钉钉) Channel
-export interface DingtalkChannelConfig {
-  type: 'dingtalk';
-
-  /** App Key */
-  appKey: string;
-
-  /** App Secret */
-  appSecret: string;
-
-  /** Robot code */
-  robotCode?: string;
-
-  /** DM policy */
-  dm: {
-    policy: 'open' | 'pairing' | 'allowlist';
-    allowFrom?: string[];
-  };
-
-  /** Group configuration */
-  groups?: {
-    [conversationId: string]: {
-      requireMention: boolean;
-      allowFrom?: string[];
-    };
-  };
-}
-
-// Slack Channel
-export interface SlackChannelConfig {
-  type: 'slack';
-
-  /** Bot User OAuth Token (xoxb-...) */
-  botToken: string;
-
-  /** App-Level Token for Socket Mode (xapp-...) */
-  appToken?: string;
-
-  /** Use Socket Mode instead of webhook (recommended for local dev) */
-  useSocketMode?: boolean;
-
-  /** Signing secret for webhook verification */
-  signingSecret?: string;
-
-  /** DM policy */
-  dm: {
-    policy: 'open' | 'pairing' | 'allowlist';
-    allowFrom?: string[]; // Slack user IDs
-  };
-
-  /** Channel configuration */
-  channels?: {
-    [channelId: string]: {
-      requireMention: boolean;
-      allowFrom?: string[];
-    };
-  };
-}
-
-// WebSocket Client Channel
+// WebSocket Client Channel (direct clients of the local gateway control plane)
 export interface WebSocketChannelConfig {
   type: 'websocket';
 
@@ -505,11 +418,8 @@ export interface GatewayStatus {
 export interface RemoteConfig {
   gateway: GatewayConfig;
   channels: {
-    wechat?: WechatChannelConfig;
     telegram?: TelegramChannelConfig;
-    dingtalk?: DingtalkChannelConfig;
     websocket?: WebSocketChannelConfig;
-    slack?: SlackChannelConfig;
   };
 }
 

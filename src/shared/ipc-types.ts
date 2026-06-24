@@ -65,7 +65,7 @@ export type McpPresetsMap = Record<
 // ---------------------------------------------------------------------------
 
 /** Slim channel-type union (mirrors ChannelType in remote/types.ts). */
-export type RemoteChannelType = 'wechat' | 'telegram' | 'dingtalk' | 'websocket';
+export type RemoteChannelType = 'telegram' | 'websocket';
 
 /** Telegram channel configuration (mirrors TelegramChannelConfig in remote/types.ts). */
 export interface TelegramChannelConfig {
@@ -116,9 +116,7 @@ export interface GatewayConfig {
 export interface RemoteConfig {
   gateway: GatewayConfig;
   channels: {
-    wechat?: Record<string, unknown>;
     telegram?: TelegramChannelConfig;
-    dingtalk?: Record<string, unknown>;
     websocket?: Record<string, unknown>;
   };
 }

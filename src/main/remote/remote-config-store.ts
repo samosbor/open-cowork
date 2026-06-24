@@ -1,6 +1,6 @@
 /**
  * Remote Config Store
- * 远程控制配置存储
+ * Persists remote control gateway and channel configuration.
  */
 
 import Store from 'electron-store';
@@ -12,9 +12,7 @@ import {
 import type {
   RemoteConfig,
   GatewayConfig,
-  WechatChannelConfig,
   TelegramChannelConfig,
-  DingtalkChannelConfig,
   WebSocketChannelConfig,
   PairedUser,
 } from './types';
@@ -124,21 +122,6 @@ class RemoteConfigStore {
   }
 
   /**
-   * Get wechat channel config
-   */
-  getWechatConfig(): WechatChannelConfig | undefined {
-    return this.store.get('channels.wechat');
-  }
-
-  /**
-   * Set wechat channel config
-   */
-  setWechatConfig(config: WechatChannelConfig): void {
-    this.store.set('channels.wechat', config);
-    log('[RemoteConfig] WeChat config updated');
-  }
-
-  /**
    * Get telegram channel config
    */
   getTelegramConfig(): TelegramChannelConfig | undefined {
@@ -151,21 +134,6 @@ class RemoteConfigStore {
   setTelegramConfig(config: TelegramChannelConfig): void {
     this.store.set('channels.telegram', config);
     log('[RemoteConfig] Telegram config updated');
-  }
-
-  /**
-   * Get dingtalk channel config
-   */
-  getDingtalkConfig(): DingtalkChannelConfig | undefined {
-    return this.store.get('channels.dingtalk');
-  }
-
-  /**
-   * Set dingtalk channel config
-   */
-  setDingtalkConfig(config: DingtalkChannelConfig): void {
-    this.store.set('channels.dingtalk', config);
-    log('[RemoteConfig] DingTalk config updated');
   }
 
   /**
