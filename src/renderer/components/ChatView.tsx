@@ -250,6 +250,48 @@ export function ChatView() {
     textareaRef.current?.focus();
   }, [activeSessionId]);
 
+  // When switching to a chat from the sidebar, jump to the bottom so the most
+  // recent messages are visible (instead of starting scrolled to the top).
+  // Because the new session's messages load asynchronously, we arm a flag on
+  // session change and perform the jump once the messages for that session
+  // have actually rendered.
+  const pendingBottomJumpRef = useRef(false);
+
+  useEffect(() => {
+    if (!activeSessionId) return;
+    // Treat a session switch as "user is at bottom" so subsequent auto-scrolls work.
+    isUserAtBottomRef.current = true;
+    pendingBottomJumpRef.current = true;
+    // Reset count trackers so the streaming-scroll effect doesn't treat the
+    // freshly loaded messages as "new" and smooth-scroll mid-jump.
+    prevMessageCountRef.current = messages.length;
+    prevPartialLengthRef.current = 0;
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    if (!pendingBottomJumpRef.current) return;
+
+    const jumpToBottom = () => {
+      const container = scrollContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    };
+
+    // Jump now and again on the next frame to account for late content
+    // (images, todo blocks) that expands height after first paint.
+    const raf1 = requestAnimationFrame(() => {
+      jumpToBottom();
+      const raf2 = requestAnimationFrame(jumpToBottom);
+      scrollRequestRef.current = raf2;
+    });
+
+    pendingBottomJumpRef.current = false;
+    prevMessageCountRef.current = messages.length;
+
+    return () => cancelAnimationFrame(raf1);
+  }, [activeSessionId, messages.length]);
+
   // Handle paste event for images
   const handlePaste = async (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
