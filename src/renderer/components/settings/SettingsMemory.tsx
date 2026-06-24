@@ -289,7 +289,6 @@ export function SettingsMemory() {
       await Promise.all([refreshOverview(), refreshFiles()]);
       setStatus(
         t('memory.rebuildAllSuccess', {
-          defaultValue: `已重建全部记忆：${result.sessionCount} 个会话，${result.workspaceCount} 个来源工作区`,
           sessionCount: result.sessionCount,
           workspaceCount: result.workspaceCount,
         })
