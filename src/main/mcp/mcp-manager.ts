@@ -1358,9 +1358,11 @@ export class MCPManager {
     } else if (platform === 'win32') {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const fs = require('fs');
-      // Chrome can be installed in per-user (%LOCALAPPDATA%) or system-wide locations
+      // Chrome can be installed in per-user (%LOCALAPPDATA%) or system-wide locations.
+      // Probe each known location and only spawn a path that actually exists so we
+      // can surface a precise "Chrome not found" error instead of a silent failure.
       const candidates = [
-        path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+        // System-wide 64-bit install (the canonical default location)
         path.join(
           process.env['PROGRAMFILES'] || 'C:\\Program Files',
           'Google',
@@ -1368,6 +1370,15 @@ export class MCPManager {
           'Application',
           'chrome.exe'
         ),
+        // System-wide install when the process runs in a 32-bit context
+        path.join(
+          process.env['PROGRAMW6432'] || 'C:\\Program Files',
+          'Google',
+          'Chrome',
+          'Application',
+          'chrome.exe'
+        ),
+        // 32-bit Chrome on 64-bit Windows
         path.join(
           process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)',
           'Google',
@@ -1375,14 +1386,27 @@ export class MCPManager {
           'Application',
           'chrome.exe'
         ),
+        // Per-user install (%LOCALAPPDATA%)
+        path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+        // Explicit canonical fallback path, checked literally
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
       ];
-      chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'; // fallback
-      for (const candidate of candidates) {
-        if (candidate && fs.existsSync(candidate)) {
-          chromePath = candidate;
-          break;
+
+      const resolved = candidates.find((candidate) => {
+        try {
+          return Boolean(candidate) && fs.existsSync(candidate);
+        } catch {
+          return false;
         }
+      });
+
+      if (!resolved) {
+        const checked = candidates.filter(Boolean).join('\n  ');
+        throw new Error(
+          `Chrome executable not found. Checked these locations:\n  ${checked}\nPlease install Google Chrome.`
+        );
       }
+      chromePath = resolved;
     } else {
       chromePath = 'google-chrome';
     }
@@ -1394,6 +1418,13 @@ export class MCPManager {
       const chromeProcess = spawn(chromePath, chromeArgs, {
         detached: true,
         stdio: 'ignore',
+      });
+      // spawn() reports a missing executable asynchronously via the 'error' event
+      // (not a synchronous throw), so attach a handler to avoid an unhandled error.
+      chromeProcess.on('error', (spawnError: NodeJS.ErrnoException) => {
+        logError(
+          `[MCPManager] Chrome process failed to start: ${spawnError.code || ''} ${spawnError.message}`
+        );
       });
       chromeProcess.unref();
 
@@ -1417,6 +1448,50 @@ export class MCPManager {
         log(`[MCPManager] stderr: ${spawnErr.stderr}`);
       }
     }
+  }
+
+  /**
+   * Public entry point to launch Chrome with remote debugging on port 9222
+   * for the Chrome MCP connector. Used by a UI button so users don't have to
+   * start Chrome with the debugging flag manually.
+   *
+   * - If a debugging Chrome is already running on 9222, it is reused (no-op).
+   * - Otherwise a new Chrome window is launched and we wait for the port.
+   */
+  async launchChromeForConnector(): Promise<{
+    success: boolean;
+    alreadyRunning: boolean;
+    port: number;
+    error?: string;
+  }> {
+    const port = 9222;
+
+    // Reuse an already-running debugging instance if present.
+    if (await this.isChromeDebugPortReady()) {
+      log('[MCPManager] Chrome debug port already running; reusing existing instance');
+      return { success: true, alreadyRunning: true, port };
+    }
+
+    try {
+      await this.startChromeWithDebugging();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logError(`[MCPManager] Failed to launch Chrome for connector: ${message}`);
+      return { success: false, alreadyRunning: false, port, error: message };
+    }
+
+    // Wait for the debugging port to become reachable.
+    const ready = await this.waitForChromeDebugPort(15, 1000);
+    if (!ready) {
+      return {
+        success: false,
+        alreadyRunning: false,
+        port,
+        error: 'Chrome started but the debugging port did not become ready in time.',
+      };
+    }
+
+    return { success: true, alreadyRunning: false, port };
   }
 
   /**

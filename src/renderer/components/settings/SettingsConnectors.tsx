@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ChevronDown,
   X,
+  Globe,
 } from 'lucide-react';
 import type { MCPServerConfig, MCPServerStatus, MCPToolInfo, MCPPreset } from './shared';
 
@@ -38,6 +39,11 @@ export function SettingsConnectors({ isActive }: { isActive: boolean }) {
     preset: MCPPreset;
   } | null>(null);
   const [presetEnvValues, setPresetEnvValues] = useState<Record<string, string>>({});
+  const [isLaunchingChrome, setIsLaunchingChrome] = useState(false);
+  const [chromeLaunchMessage, setChromeLaunchMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   // Auto-refresh
   const loadPresets = useCallback(async () => {
@@ -182,6 +188,38 @@ export function SettingsConnectors({ isActive }: { isActive: boolean }) {
     await handleSaveServer({ ...server, enabled: !server.enabled });
   }
 
+  async function handleLaunchChrome() {
+    if (!isElectron) {
+      setChromeLaunchMessage({ type: 'error', text: t('mcp.chromeLaunchFailed') });
+      return;
+    }
+    setIsLaunchingChrome(true);
+    setChromeLaunchMessage(null);
+    try {
+      const result = await window.electronAPI.mcp.launchChrome();
+      if (result.success) {
+        setChromeLaunchMessage({
+          type: 'success',
+          text: result.alreadyRunning
+            ? t('mcp.chromeAlreadyRunning', { port: result.port })
+            : t('mcp.chromeLaunched', { port: result.port }),
+        });
+      } else {
+        setChromeLaunchMessage({
+          type: 'error',
+          text: result.error || t('mcp.chromeLaunchFailed'),
+        });
+      }
+    } catch (err) {
+      setChromeLaunchMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : t('mcp.chromeLaunchFailed'),
+      });
+    } finally {
+      setIsLaunchingChrome(false);
+    }
+  }
+
   function getServerStatus(serverId: string) {
     return statuses.find((s) => s.id === serverId);
   }
@@ -198,6 +236,56 @@ export function SettingsConnectors({ isActive }: { isActive: boolean }) {
           {error}
         </div>
       )}
+
+      {/* Chrome connector helper: launch Chrome with the remote debugging port */}
+      <div className="rounded-lg border border-border-subtle bg-background p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+              <Globe className="w-5 h-5 text-accent" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text-primary">
+                {t('mcp.launchChromeTitle')}
+              </p>
+              <p className="text-xs text-text-muted mt-0.5">
+                {t('mcp.launchChromeDescription')}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              void handleLaunchChrome();
+            }}
+            disabled={isLaunchingChrome}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+          >
+            {isLaunchingChrome ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Globe className="w-3.5 h-3.5" />
+            )}
+            {isLaunchingChrome ? t('mcp.launchingChrome') : t('mcp.launchChromeButton')}
+          </button>
+        </div>
+        {chromeLaunchMessage && (
+          <div
+            className={`mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-xs ${
+              chromeLaunchMessage.type === 'success'
+                ? 'bg-success/10 text-success'
+                : 'bg-error/10 text-error'
+            }`}
+          >
+            {chromeLaunchMessage.type === 'success' ? (
+              <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+            ) : (
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            )}
+            <span>{chromeLaunchMessage.text}</span>
+          </div>
+        )}
+      </div>
 
       {/* Add/Edit Form */}
       {(showAddForm || editingServer) && (
