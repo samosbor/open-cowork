@@ -2,11 +2,21 @@ import fs from 'node:fs/promises';
 import type { Dirent } from 'node:fs';
 import path from 'node:path';
 
+function compareRecentWorkspaceFiles(a: RecentWorkspaceFile, b: RecentWorkspaceFile): number {
+  if (a.modifiedAt !== b.modifiedAt) {
+    return b.modifiedAt - a.modifiedAt;
+  }
+
+  return a.path.localeCompare(b.path);
+}
+
 export interface RecentWorkspaceFile {
   path: string;
   modifiedAt: number;
   size: number;
 }
+
+const RECENT_FILE_TIMESTAMP_TOLERANCE_MS = 1000;
 
 const EXCLUDED_DIRS = new Set([
   '.git',
@@ -76,7 +86,7 @@ export async function listRecentWorkspaceFiles(
       try {
         const stat = await fs.stat(fullPath);
         const touchedAt = Math.max(stat.mtimeMs, stat.birthtimeMs || 0);
-        if (touchedAt < sinceMs) {
+        if (touchedAt + RECENT_FILE_TIMESTAMP_TOLERANCE_MS < sinceMs) {
           continue;
         }
 
@@ -91,7 +101,7 @@ export async function listRecentWorkspaceFiles(
     }
   }
 
-  return results.sort((a, b) => b.modifiedAt - a.modifiedAt).slice(0, limit);
+  return results.sort(compareRecentWorkspaceFiles).slice(0, limit);
 }
 
 function shouldIgnoreFile(fileName: string): boolean {
