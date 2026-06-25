@@ -52,33 +52,9 @@ class RemoteConfigStore {
       warn: logWarn,
     }) as unknown as Store<RemoteConfig & { pairedUsers: PairedUser[] }>;
 
-    // Migrate: change pairing mode to allowlist (allow everyone by default)
-    this.migrateAuthMode();
-
-  }
-
-  /**
-   * Migrate old pairing mode to allowlist, preserving existing paired users
-   */
-  private migrateAuthMode(): void {
-    const gateway = this.store.get('gateway');
-    if (gateway?.auth?.mode === 'pairing') {
-      // Carry over already-paired user IDs so they are not locked out.
-      // Use channelType:userId format to preserve channel scoping.
-      const pairedUsers = this.store.get('pairedUsers', []);
-      const allowlist = pairedUsers.map((u: PairedUser) => `${u.channelType}:${u.userId}`);
-
-      log(
-        '[RemoteConfig] Migrating auth mode from pairing to allowlist, preserving',
-        allowlist.length,
-        'users'
-      );
-      this.store.set('gateway.auth', {
-        mode: 'allowlist',
-        allowlist,
-        requirePairing: false,
-      });
-    }
+    // NOTE: a previous migration forced `pairing` mode into `allowlist`. That
+    // broke the operator-approval pairing flow, so it has been removed. Pairing
+    // is now the supported default and persists as-is.
   }
 
   /**

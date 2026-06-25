@@ -163,13 +163,15 @@ export function RemoteControlPanel({ isActive }: { isActive: boolean }) {
       });
 
       if (telegramBotToken) {
+        const policy = telegramDmPolicy as 'open' | 'pairing' | 'allowlist' | 'disabled';
         await window.electronAPI.remote.updateTelegramConfig({
           type: 'telegram',
           botToken: telegramBotToken,
           webhookUrl: useLongConnection
             ? undefined
             : webhookUrl || `http://127.0.0.1:${gatewayPort}/webhook/telegram`,
-          dm: { policy: telegramDmPolicy as 'open' | 'pairing' | 'allowlist' },
+          // 'open' requires an explicit wildcard allowFrom to match OpenClaw semantics.
+          dm: { policy, ...(policy === 'open' ? { allowFrom: ['*'] } : {}) },
         });
       }
 

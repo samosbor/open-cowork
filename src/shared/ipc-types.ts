@@ -67,16 +67,31 @@ export type McpPresetsMap = Record<
 /** Slim channel-type union (mirrors ChannelType in remote/types.ts). */
 export type RemoteChannelType = 'telegram' | 'websocket';
 
+/** DM access policy (mirrors TelegramDmPolicy in remote/types.ts). */
+export type TelegramDmPolicy = 'open' | 'pairing' | 'allowlist' | 'disabled';
+
+/** Group access policy (mirrors TelegramGroupPolicy in remote/types.ts). */
+export type TelegramGroupPolicy = 'open' | 'allowlist' | 'disabled';
+
+/** Per-group / per-topic override (mirrors TelegramGroupConfig in remote/types.ts). */
+export interface TelegramGroupConfig {
+  requireMention?: boolean;
+  allowFrom?: string[];
+  groupPolicy?: TelegramGroupPolicy;
+}
+
 /** Telegram channel configuration (mirrors TelegramChannelConfig in remote/types.ts). */
 export interface TelegramChannelConfig {
   type: 'telegram';
   botToken: string;
   webhookUrl?: string;
   dm: {
-    policy: 'open' | 'pairing' | 'allowlist';
+    policy: TelegramDmPolicy;
     allowFrom?: string[];
   };
-  groups?: Record<string, { requireMention: boolean; allowFrom?: string[] }>;
+  groupPolicy?: TelegramGroupPolicy;
+  groupAllowFrom?: string[];
+  groups?: Record<string, TelegramGroupConfig>;
 }
 
 /** Gateway authentication config. */

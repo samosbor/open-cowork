@@ -113,6 +113,41 @@ describe('TelegramChannel', () => {
     expect(channel.connected).toBe(false);
   });
 
+  it('polls getUpdates and delivers inbound messages after start (regression: connected-before-poll)', async () => {
+    // Regression for a race where the poll loop ran before `_connected` was set
+    // true, so its first iteration bailed out and polling silently never ran.
+    let served = false;
+    const { calls } = installFetchMock({
+      responses: {
+        getUpdates: () => {
+          // Serve one update on the first poll, then empty afterwards.
+          if (served) return [];
+          served = true;
+          return [privateTextUpdate('ping from polling')];
+        },
+      },
+    });
+
+    const channel = new TelegramChannel(makeConfig());
+    const received: RemoteMessage[] = [];
+    channel.onMessage((m) => received.push(m));
+
+    await channel.start();
+
+    // Wait for at least one poll cycle to complete.
+    await vi.waitFor(
+      () => {
+        expect(calls.some((c) => c.method === 'getUpdates')).toBe(true);
+        expect(received).toHaveLength(1);
+      },
+      { timeout: 2000 }
+    );
+
+    expect(received[0].content.text).toBe('ping from polling');
+
+    await channel.stop();
+  });
+
   it('starts in webhook mode when webhookUrl is configured', async () => {
     const { calls } = installFetchMock();
     const channel = new TelegramChannel(

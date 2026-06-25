@@ -18,8 +18,20 @@ import type {
   PairingRequest,
   PairedUser,
   GatewayEvent,
+  TelegramChannelConfig,
+  TelegramGroupConfig,
+  TelegramGroupPolicy,
 } from './types';
 import { MessageRouter } from './message-router';
+
+/**
+ * Normalize a Telegram sender ID for allowlist comparison. Strips the
+ * `telegram:` / `tg:` prefixes that OpenClaw accepts so `123`, `tg:123`, and
+ * `telegram:123` all compare equal.
+ */
+function normalizeTelegramId(id: string): string {
+  return id.replace(/^(telegram|tg):/i, '').trim();
+}
 
 // WebSocket client connection
 interface WSClient {
@@ -49,6 +61,10 @@ export class RemoteGateway extends EventEmitter {
   // Pairing management
   private pairingRequests: Map<string, PairingRequest> = new Map();
   private pairedUsers: Map<string, PairedUser> = new Map();
+
+  // Telegram channel config (for group/allowlist policy checks). Set by the
+  // RemoteManager when the Telegram channel is registered.
+  private telegramConfig?: TelegramChannelConfig;
 
   private _running: boolean = false;
 
@@ -254,6 +270,31 @@ export class RemoteGateway extends EventEmitter {
       sender: message.sender.id,
     });
 
+    // Group messages follow a separate access model from DMs (matches OpenClaw):
+    // group sender authorization comes from `groupAllowFrom`/`groups.<id>.allowFrom`
+    // and never inherits DM pairing approvals. Mention gating is applied here too.
+    if (message.isGroup) {
+      if (!this.shouldProcessGroupMessage(message)) {
+        // Reason is logged inside shouldProcessGroupMessage. Stay silent in
+        // groups for unrelated traffic to avoid spamming the chat.
+        return;
+      }
+
+      // Interaction responses still flow through the interceptor for group chats.
+      if (this.messageInterceptor && message.content.type === 'text' && message.content.text) {
+        const consumed = await this.messageInterceptor(message);
+        if (consumed) {
+          log('[Gateway] Message consumed by interceptor (interaction response)');
+          return;
+        }
+      }
+
+      this.emitEvent('message.received', { message });
+      await this.messageRouter.routeMessage(message);
+      return;
+    }
+
+    // --- Direct messages ---
     // Check if user is authorized FIRST — before any interceptor processing
     const authorized = await this.checkAuthorization(message);
     if (!authorized) {
@@ -262,6 +303,9 @@ export class RemoteGateway extends EventEmitter {
       // Handle pairing if enabled
       if (this.config.auth.mode === 'pairing') {
         await this.handlePairingRequest(message);
+      } else if (this.isTelegramDmDisabled()) {
+        // DM policy 'disabled' silently drops DMs (matches OpenClaw).
+        log('[Gateway] Telegram DMs are disabled by policy; dropping message');
       } else {
         // Send unauthorized response
         await this.sendToChannel({
@@ -286,16 +330,7 @@ export class RemoteGateway extends EventEmitter {
       }
     }
 
-    // Check group settings
-    if (message.isGroup) {
-      const shouldProcess = this.shouldProcessGroupMessage(message);
-      if (!shouldProcess) {
-        log('[Gateway] Ignoring group message (not mentioned)');
-        return;
-      }
-    }
-
-    // Route message to agent
+    // Route DM to agent (group messages are handled and routed above).
     this.emitEvent('message.received', { message });
     await this.messageRouter.routeMessage(message);
   }
@@ -343,15 +378,29 @@ export class RemoteGateway extends EventEmitter {
         // Token auth is for WebSocket clients only, deny channel messages
         return false;
 
-      case 'allowlist':
+      case 'allowlist': {
         if (!allowlist || allowlist.length === 0) {
           return false; // Empty allowlist means deny all
         }
-        // Support both scoped (channelType:userId) and legacy (userId) formats
-        return (
-          allowlist.includes(`${message.channelType}:${message.sender.id}`) ||
-          allowlist.includes(message.sender.id)
-        );
+        // Wildcard allows any sender (used by dmPolicy 'open' semantics).
+        if (allowlist.includes('*') || allowlist.includes(`${message.channelType}:*`)) {
+          return true;
+        }
+        // Support scoped (channelType:userId), legacy (userId), and tg:/telegram:
+        // prefixed entries. Normalize so 123, tg:123, telegram:123 all match.
+        const senderId = message.sender.id;
+        const normalizedSender = normalizeTelegramId(senderId);
+        return allowlist.some((entry) => {
+          const scoped = entry.startsWith(`${message.channelType}:`)
+            ? entry.slice(message.channelType.length + 1)
+            : entry;
+          return (
+            entry === senderId ||
+            entry === `${message.channelType}:${senderId}` ||
+            normalizeTelegramId(scoped) === normalizedSender
+          );
+        });
+      }
 
       case 'pairing': {
         // Check if user is paired
@@ -368,76 +417,136 @@ export class RemoteGateway extends EventEmitter {
   }
 
   /**
-   * Check if group message should be processed
+   * Provide the Telegram channel config so the gateway can apply OpenClaw-style
+   * group/DM allowlist policies. Called by RemoteManager when the channel is
+   * registered.
    */
-  private shouldProcessGroupMessage(message: RemoteMessage): boolean {
-    // Always process if explicitly mentioned
-    if (message.isMentioned) {
-      return true;
-    }
+  setTelegramConfig(config: TelegramChannelConfig | undefined): void {
+    this.telegramConfig = config;
+  }
 
-    // TODO: Check channel-specific group settings
-    // For now, require mention in groups by default
-    return false;
+  /** Whether Telegram DM policy is explicitly 'disabled'. */
+  private isTelegramDmDisabled(): boolean {
+    return this.telegramConfig?.dm?.policy === 'disabled';
   }
 
   /**
-   * Handle pairing request from unauthorized user
+   * Resolve the effective per-group config, applying `"*"` wildcard defaults and
+   * exact-match overrides (exact wins). Returns undefined when no entry matches.
+   */
+  private resolveGroupConfig(chatId: string): TelegramGroupConfig | undefined {
+    const groups = this.telegramConfig?.groups;
+    if (!groups) return undefined;
+    const wildcard = groups['*'];
+    const exact = groups[chatId];
+    if (!wildcard && !exact) return undefined;
+    return { ...(wildcard ?? {}), ...(exact ?? {}) };
+  }
+
+  /**
+   * Determine whether a group sender is authorized to trigger the bot.
+   *
+   * Mirrors OpenClaw: per-group `allowFrom` wins, then `groupAllowFrom`, then
+   * `dm.allowFrom`. `"*"` allows any member of an allowed group. Group sender
+   * auth never inherits DM pairing approvals.
+   */
+  private isGroupSenderAllowed(senderId: string, groupConfig?: TelegramGroupConfig): boolean {
+    const tg = this.telegramConfig;
+    const sender = normalizeTelegramId(senderId);
+
+    const allowFrom =
+      groupConfig?.allowFrom ?? tg?.groupAllowFrom ?? tg?.dm?.allowFrom ?? [];
+
+    if (allowFrom.includes('*')) return true;
+    return allowFrom.map(normalizeTelegramId).includes(sender);
+  }
+
+  /**
+   * Check if a group message should be processed.
+   *
+   * OpenClaw group model:
+   *   1. Group must be allowed (listed in `groups`, or `"*"` present; with
+   *      `groupPolicy: "open"` and no `groups` config, any group passes).
+   *   2. Sender must be authorized (`groupPolicy`/`groupAllowFrom`/`allowFrom`).
+   *   3. Mention gating applies (`requireMention`, default true).
+   */
+  private shouldProcessGroupMessage(message: RemoteMessage): boolean {
+    const tg = this.telegramConfig;
+    // Fail-closed default when Telegram config is missing entirely.
+    const groupPolicy: TelegramGroupPolicy = tg?.groupPolicy ?? 'allowlist';
+
+    if (groupPolicy === 'disabled') {
+      log('[Gateway] Group messages disabled by policy');
+      return false;
+    }
+
+    const groupConfig = this.resolveGroupConfig(message.channelId);
+
+    // 1. Group allowlist check.
+    const hasGroupsConfig = !!tg?.groups && Object.keys(tg.groups).length > 0;
+    if (hasGroupsConfig) {
+      if (!groupConfig) {
+        log('[Gateway] Group not in allowlist:', message.channelId);
+        return false;
+      }
+    } else if (groupPolicy === 'allowlist') {
+      // No groups configured + default allowlist policy = blocked until configured.
+      log('[Gateway] No group allowlist configured (fail-closed); ignoring group message');
+      return false;
+    }
+
+    // 2. Per-group policy override (e.g. a single open group).
+    const effectivePolicy: TelegramGroupPolicy = groupConfig?.groupPolicy ?? groupPolicy;
+
+    // 3. Sender authorization (skipped only when the effective policy is 'open').
+    if (effectivePolicy !== 'open' && !this.isGroupSenderAllowed(message.sender.id, groupConfig)) {
+      log('[Gateway] Group sender not authorized:', message.sender.id);
+      return false;
+    }
+
+    // 4. Mention gating (default: require mention).
+    const requireMention = groupConfig?.requireMention ?? true;
+    if (requireMention && !message.isMentioned) {
+      log('[Gateway] Group message ignored (mention required)');
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Handle pairing request from an unauthorized user.
+   *
+   * Operator-approval model (matches OpenClaw): the first DM from an unknown
+   * sender creates a pending pairing request that the operator approves in the
+   * app UI. The pairing code is NOT echoed back by the user — only the operator
+   * can approve, so a sender can never pair themselves by replying with a code.
    */
   private async handlePairingRequest(message: RemoteMessage): Promise<void> {
     const userKey = `${message.channelType}:${message.sender.id}`;
 
-    // Check if already has a pending pairing request
-    if (this.pairingRequests.has(userKey)) {
-      const existing = this.pairingRequests.get(userKey)!;
-
-      // Check if message contains the pairing code
-      const inputCode = message.content.text?.trim();
-      if (inputCode === existing.code) {
-        // Pairing successful
-        this.pairedUsers.set(userKey, {
-          userId: message.sender.id,
-          userName: message.sender.name,
-          channelType: message.channelType,
-          pairedAt: Date.now(),
-          lastActiveAt: Date.now(),
-        });
-
-        this.pairingRequests.delete(userKey);
-
+    // If a (non-expired) pairing request already exists, just remind the user
+    // that approval is pending. Subsequent DMs do not change pairing state.
+    const existing = this.pairingRequests.get(userKey);
+    if (existing) {
+      if (Date.now() <= existing.expiresAt) {
         await this.sendToChannel({
           channelType: message.channelType,
           channelId: message.channelId,
           content: {
             type: 'text',
-            text: '✅ Pairing successful! You can now start using the bot.',
-          },
-          replyTo: message.id,
-        });
-
-        log('[Gateway] User paired successfully:', userKey);
-        return;
-      }
-
-      // Check if expired
-      if (Date.now() > existing.expiresAt) {
-        this.pairingRequests.delete(userKey);
-      } else {
-        // Already has valid pairing request
-        await this.sendToChannel({
-          channelType: message.channelType,
-          channelId: message.channelId,
-          content: {
-            type: 'text',
-            text: `Please enter the pairing code to verify.\n\nYour pairing code is: **${existing.code}**\n\nSend this code to the administrator for confirmation, or reply with the code here to complete pairing.`,
+            text: '⏳ Your access request is pending. The operator needs to approve it in the Open Cowork app. Hang tight!',
           },
           replyTo: message.id,
         });
         return;
       }
+      // Expired — fall through to create a fresh request.
+      this.pairingRequests.delete(userKey);
     }
 
-    // Generate new pairing code
+    // Generate a new pairing request. The code is shown to the operator in the
+    // app so they can match this request to the right person before approving.
     const code = this.generatePairingCode();
     const pairingRequest: PairingRequest = {
       code,
@@ -445,7 +554,7 @@ export class RemoteGateway extends EventEmitter {
       userId: message.sender.id,
       userName: message.sender.name,
       createdAt: Date.now(),
-      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+      expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour (matches OpenClaw)
     };
 
     this.pairingRequests.set(userKey, pairingRequest);
@@ -455,14 +564,14 @@ export class RemoteGateway extends EventEmitter {
       channelId: message.channelId,
       content: {
         type: 'text',
-        text: `👋 Hello! First-time use requires pairing verification.\n\nYour pairing code is: **${code}**\n\nSend this code to the administrator for confirmation. The code is valid for 10 minutes.`,
+        text: `👋 Hi ${message.sender.name || 'there'}! To use this bot you need to be approved.\n\nYour request has been sent to the operator. They'll approve it in the Open Cowork app. You'll get a confirmation here once you're in.\n\n(Request code: ${code})`,
       },
       replyTo: message.id,
     });
 
-    log('[Gateway] Generated pairing code for user:', userKey);
+    log('[Gateway] Created pairing request for user:', userKey);
 
-    // Emit pairing event for UI notification
+    // Emit pairing event so the app UI can show the request for approval.
     this.emitEvent('gateway.pairing_request', {
       code,
       channelType: message.channelType,
@@ -499,6 +608,18 @@ export class RemoteGateway extends EventEmitter {
 
     this.pairingRequests.delete(userKey);
     log('[Gateway] Pairing approved:', userKey);
+
+    // Notify the user in their DM that they're approved. For Telegram the DM
+    // chat id equals the user id, so we can reach them directly.
+    void this.sendToChannel({
+      channelType,
+      channelId: userId,
+      content: {
+        type: 'text',
+        text: "✅ You're approved! You can now start using the bot. Send a message to begin.",
+      },
+    });
+
     return true;
   }
 
@@ -516,6 +637,16 @@ export class RemoteGateway extends EventEmitter {
 
     this.pairingRequests.delete(userKey);
     log('[Gateway] Pairing rejected:', userKey);
+
+    void this.sendToChannel({
+      channelType,
+      channelId: userId,
+      content: {
+        type: 'text',
+        text: '🚫 Your access request was declined by the operator.',
+      },
+    });
+
     return true;
   }
 

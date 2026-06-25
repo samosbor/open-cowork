@@ -92,6 +92,37 @@ export interface ChannelConfig {
   config: TelegramChannelConfig | WebSocketChannelConfig;
 }
 
+/**
+ * Direct-message access policy (mirrors OpenClaw `channels.telegram.dmPolicy`).
+ *
+ * - `open`     — any Telegram user can talk to the bot (requires `allowFrom: ["*"]`)
+ * - `pairing`  — first DM from an unknown user creates an operator-approvable request
+ * - `allowlist`— only numeric user IDs listed in `allowFrom` may talk to the bot
+ * - `disabled` — DMs are rejected entirely
+ */
+export type TelegramDmPolicy = 'open' | 'pairing' | 'allowlist' | 'disabled';
+
+/**
+ * Group access policy (mirrors OpenClaw `channels.telegram.groupPolicy`).
+ *
+ * - `open`     — any member of an allowed group can trigger the bot
+ * - `allowlist`— only senders in `groupAllowFrom` (falling back to `allowFrom`) may trigger it
+ * - `disabled` — the bot never responds in groups
+ */
+export type TelegramGroupPolicy = 'open' | 'allowlist' | 'disabled';
+
+/** Per-group / per-topic override (mirrors OpenClaw `channels.telegram.groups.<chatId>`). */
+export interface TelegramGroupConfig {
+  /** Require an explicit @mention of the bot before responding (default: true). */
+  requireMention?: boolean;
+
+  /** Sender IDs allowed to trigger the bot in this group (overrides groupAllowFrom). */
+  allowFrom?: string[];
+
+  /** Per-group policy override. */
+  groupPolicy?: TelegramGroupPolicy;
+}
+
 // Telegram Channel
 export interface TelegramChannelConfig {
   type: 'telegram';
@@ -104,16 +135,32 @@ export interface TelegramChannelConfig {
 
   /** DM policy */
   dm: {
-    policy: 'open' | 'pairing' | 'allowlist';
-    allowFrom?: string[]; // Telegram user IDs
+    policy: TelegramDmPolicy;
+    allowFrom?: string[]; // Telegram user IDs (numeric; "*" for open)
   };
 
-  /** Group configuration */
+  /**
+   * Group access policy (mirrors OpenClaw `groupPolicy`). Defaults to `allowlist`
+   * (fail-closed) when not set.
+   */
+  groupPolicy?: TelegramGroupPolicy;
+
+  /**
+   * Sender IDs allowed to trigger the bot in groups. Falls back to `dm.allowFrom`
+   * when unset (mirrors OpenClaw `groupAllowFrom`). Numeric Telegram user IDs;
+   * `telegram:` / `tg:` prefixes are normalized. Use `["*"]` to allow any member
+   * of an allowed group.
+   */
+  groupAllowFrom?: string[];
+
+  /**
+   * Group allowlist (mirrors OpenClaw `channels.telegram.groups`). Keys are
+   * numeric Telegram group/supergroup chat IDs (negative, e.g. `-1001234567890`)
+   * or `"*"` to match any group. When present, acts as an allowlist: groups not
+   * listed (and without a `"*"` entry) are blocked.
+   */
   groups?: {
-    [chatId: string]: {
-      requireMention: boolean;
-      allowFrom?: string[];
-    };
+    [chatId: string]: TelegramGroupConfig;
   };
 }
 
@@ -429,9 +476,12 @@ export const DEFAULT_REMOTE_CONFIG: RemoteConfig = {
     port: 18789,
     bind: '127.0.0.1',
     auth: {
-      mode: 'allowlist', // Empty allowlist = deny all (configure specific user IDs to allow access)
+      // Default to pairing (matches OpenClaw's default dmPolicy): the first DM
+      // from an unknown user creates an operator-approvable request instead of
+      // being silently denied. Operators can switch to 'allowlist' or 'open'.
+      mode: 'pairing',
       allowlist: [],
-      requirePairing: false,
+      requirePairing: true,
     },
   },
   channels: {},

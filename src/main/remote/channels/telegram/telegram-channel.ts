@@ -80,6 +80,11 @@ export class TelegramChannel extends ChannelBase {
       this.botUserId = me.id;
       this.botUsername = me.username;
 
+      // Mark connected BEFORE starting the polling loop. The poll loop's first
+      // iteration runs synchronously up to its initial await and bails out early
+      // if `_connected` is still false — which would silently kill polling.
+      this._connected = true;
+
       if (this.config.webhookUrl) {
         await this.callApi('setWebhook', { url: this.config.webhookUrl });
         this.logStatus('Using webhook mode');
@@ -89,7 +94,6 @@ export class TelegramChannel extends ChannelBase {
         this.logStatus('Using polling mode');
       }
 
-      this._connected = true;
       this.logStatus('Channel started successfully', {
         botUserId: this.botUserId,
         botUsername: this.botUsername,

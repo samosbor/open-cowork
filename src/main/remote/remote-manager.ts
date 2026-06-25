@@ -368,6 +368,18 @@ export class RemoteManager extends EventEmitter {
             });
             break;
           }
+          case 'disabled': {
+            // Disabled DMs: drop all Telegram entries from the allowlist while
+            // preserving other channels. The gateway also reads the 'disabled'
+            // policy to suppress the unauthorized notice (silent drop).
+            const nonTelegramEntries = (currentAuth.allowlist ?? []).filter(
+              (entry) => !entry.startsWith('telegram:')
+            );
+            remoteConfigStore.setGatewayConfig({
+              auth: { ...currentAuth, mode: 'allowlist', allowlist: nonTelegramEntries },
+            });
+            break;
+          }
         }
       }
     }
@@ -1124,6 +1136,9 @@ export class RemoteManager extends EventEmitter {
     if (telegramConfig && telegramConfig.botToken) {
       const telegramChannel = new TelegramChannel(telegramConfig);
       this.gateway.registerChannel(telegramChannel);
+
+      // Provide group/DM allowlist policy to the gateway (OpenClaw-style).
+      this.gateway.setTelegramConfig(telegramConfig);
 
       // Set up webhook handler
       this.gateway.on(
