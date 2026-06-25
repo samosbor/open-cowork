@@ -1673,24 +1673,6 @@ ipcMain.handle('mcp.getPresets', () => {
   }
 });
 
-ipcMain.handle('mcp.launchChrome', async () => {
-  try {
-    if (!sessionManager) {
-      return { success: false, alreadyRunning: false, port: 9222, error: 'MCP manager is still starting' };
-    }
-    const mcpManager = sessionManager.getMCPManager();
-    return await mcpManager.launchChromeForConnector();
-  } catch (error) {
-    logError('[MCP] Error launching Chrome for connector:', error);
-    return {
-      success: false,
-      alreadyRunning: false,
-      port: 9222,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-});
-
 // Skills API handlers
 ipcMain.handle('skills.getAll', async () => {
   try {

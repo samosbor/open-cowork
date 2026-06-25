@@ -27,7 +27,7 @@ import type { Session, Message, TraceStep, ServerEvent, ContentBlock } from '../
 import { v4 as uuidv4 } from 'uuid';
 import { decidePermission, rememberAlwaysAllow } from '../config/permission-rules-store';
 import { PathResolver } from '../sandbox/path-resolver';
-import { MCPManager } from '../mcp/mcp-manager';
+import { MCPManager, findPreferredWindowsNpxPath } from '../mcp/mcp-manager';
 import { mcpConfigStore } from '../mcp/mcp-config-store';
 import {
   log,
@@ -230,6 +230,131 @@ function getBundledNodePaths(): { node: string; npx: string } | null {
   cachedBundledNodePaths =
     fs.existsSync(nodePath) && fs.existsSync(npxPath) ? { node: nodePath, npx: npxPath } : null;
   return cachedBundledNodePaths;
+}
+
+/**
+ * Explicit system npx fallbacks on Windows. The user reported that the bundled
+ * `npx.cmd` can fail to run and the standard Node.js install
+ * (C:\Program Files\nodejs\npx.cmd) works instead, so we probe these directly
+ * in addition to searching PATH via findPreferredWindowsNpxPath.
+ */
+function getExplicitWindowsNpxCandidates(): string[] {
+  if (process.platform !== 'win32') {
+    return [];
+  }
+  const candidates: string[] = [];
+  const programFiles = process.env.ProgramW6432 || process.env.ProgramFiles;
+  if (programFiles) {
+    candidates.push(path.win32.join(programFiles, 'nodejs', 'npx.cmd'));
+  }
+  // Hardcoded default location as a last-ditch fallback (matches the path the
+  // user verified works).
+  candidates.push('C:\\Program Files\\nodejs\\npx.cmd');
+  const programFilesX86 = process.env['ProgramFiles(x86)'];
+  if (programFilesX86) {
+    candidates.push(path.win32.join(programFilesX86, 'nodejs', 'npx.cmd'));
+  }
+  // De-duplicate while preserving order.
+  return Array.from(new Set(candidates));
+}
+
+/**
+ * Verify that a given npx command can actually run. Some bundled `npx.cmd`
+ * shims fail at spawn time; this probe lets us fall back to a system install.
+ */
+function isNpxWorking(npxCommand: string): boolean {
+  try {
+    execFileSync(npxCommand, ['--version'], {
+      stdio: 'ignore',
+      timeout: 8000,
+      windowsHide: true,
+      shell: process.platform === 'win32',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Injectable dependencies for the pure npx resolution core (for testing). */
+export interface NpxResolverDeps {
+  platform: NodeJS.Platform;
+  bundledNpx: string | null;
+  pathEnv: string | undefined;
+  /** Returns true if a given npx command runs successfully. */
+  npxWorks: (npxCommand: string) => boolean;
+  /** Returns true if a given path exists on disk. */
+  pathExists: (candidate: string) => boolean;
+  /** Explicit Windows fallback candidates (e.g. C:\Program Files\nodejs\npx.cmd). */
+  explicitCandidates: string[];
+  /** Resolve the preferred npx on PATH (defaults to the shared helper). */
+  preferredFromPath?: (pathEnv: string | undefined, bundledNpx: string | null) => string | null;
+}
+
+/**
+ * Pure, testable core of npx resolution.
+ *
+ * Order of preference:
+ *   1. The bundled npx — if present AND verified working.
+ *   2. A system-installed npx found on PATH (trusted Program Files\nodejs dirs).
+ *   3. Explicit Windows fallbacks (e.g. C:\Program Files\nodejs\npx.cmd).
+ *   4. Plain `npx` (resolved via PATH) as a last resort.
+ */
+export function pickNpxCommand(deps: NpxResolverDeps): string {
+  const { platform, bundledNpx, pathEnv, npxWorks, pathExists, explicitCandidates } = deps;
+  const preferredFromPath = deps.preferredFromPath ?? findPreferredWindowsNpxPath;
+
+  if (bundledNpx && npxWorks(bundledNpx)) {
+    return bundledNpx;
+  }
+
+  if (bundledNpx) {
+    logWarn(
+      `[ClaudeAgentRunner] Bundled npx did not run (${bundledNpx}); falling back to system npx`
+    );
+  }
+
+  if (platform === 'win32') {
+    // First, reuse the shared PATH-based resolver (honors the trusted-dir model).
+    const fromPath = preferredFromPath(pathEnv, bundledNpx);
+    if (fromPath && fromPath !== bundledNpx && npxWorks(fromPath)) {
+      log(`[ClaudeAgentRunner] Using system npx from PATH: ${fromPath}`);
+      return fromPath;
+    }
+
+    // Then probe explicit well-known install locations.
+    for (const candidate of explicitCandidates) {
+      if (pathExists(candidate) && npxWorks(candidate)) {
+        log(`[ClaudeAgentRunner] Using system npx fallback: ${candidate}`);
+        return candidate;
+      }
+    }
+  }
+
+  // Last resort: rely on PATH resolution of `npx`.
+  return 'npx';
+}
+
+// Memoize the resolved npx command so we probe at most once per process.
+let cachedNpxCommand: string | undefined = undefined;
+
+/**
+ * Resolve the npx command to use for spawning stdio MCP servers, probing the
+ * real environment and memoizing the result for the process lifetime.
+ */
+function resolveNpxCommand(): string {
+  if (cachedNpxCommand !== undefined) {
+    return cachedNpxCommand;
+  }
+  cachedNpxCommand = pickNpxCommand({
+    platform: process.platform,
+    bundledNpx: getBundledNodePaths()?.npx ?? null,
+    pathEnv: process.env.PATH,
+    npxWorks: isNpxWorking,
+    pathExists: fs.existsSync,
+    explicitCandidates: getExplicitWindowsNpxCandidates(),
+  });
+  return cachedNpxCommand;
 }
 
 /**
@@ -1976,7 +2101,6 @@ ${hints.join('\n')}
         } else {
           // Use the module-level memoized helper — no more per-query fs.existsSync calls.
           const bundledNodePaths = getBundledNodePaths();
-          const bundledNpx = bundledNodePaths?.npx ?? null;
 
           for (const config of allConfigs) {
             try {
@@ -1984,17 +2108,27 @@ ${hints.join('\n')}
               const serverKey = config.name;
 
               if (config.type === 'stdio') {
-                // 当命令是 npx 或 node 时优先使用内置路径
+                // 当命令是 npx 或 node 时优先使用内置路径。
+                // npx resolves through resolveNpxCommand() which prefers the
+                // bundled npx but falls back to a system install (e.g.
+                // C:\Program Files\nodejs\npx.cmd) when the bundled one fails.
+                const resolvedNpx = config.command === 'npx' ? resolveNpxCommand() : null;
                 const command =
-                  config.command === 'npx' && bundledNpx
-                    ? bundledNpx
-                    : config.command === 'node' && bundledNodePaths
-                      ? bundledNodePaths.node
-                      : config.command;
+                  resolvedNpx ??
+                  (config.command === 'node' && bundledNodePaths
+                    ? bundledNodePaths.node
+                    : config.command);
+
+                // Whether we ended up using the BUNDLED node/npx (vs a system
+                // fallback). We only inject the bundled node bin into PATH in
+                // that case — mixing a system npx with the bundled node bin can
+                // cause version mismatches.
+                const usingBundledNpx = resolvedNpx === (bundledNodePaths?.npx ?? null);
+                const usingBundledNode = config.command === 'node' && !!bundledNodePaths;
 
                 // 使用内置 npx/node 时，将内置 node bin 注入 PATH
                 const serverEnv = { ...config.env };
-                if (bundledNodePaths && (config.command === 'npx' || config.command === 'node')) {
+                if (bundledNodePaths && (usingBundledNpx || usingBundledNode)) {
                   const nodeBinDir = path.dirname(bundledNodePaths.node);
                   const currentPath = process.env.PATH || '';
                   // Prepend bundled node bin to PATH so npx can find node

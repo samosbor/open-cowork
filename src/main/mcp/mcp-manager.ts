@@ -1451,50 +1451,6 @@ export class MCPManager {
   }
 
   /**
-   * Public entry point to launch Chrome with remote debugging on port 9222
-   * for the Chrome MCP connector. Used by a UI button so users don't have to
-   * start Chrome with the debugging flag manually.
-   *
-   * - If a debugging Chrome is already running on 9222, it is reused (no-op).
-   * - Otherwise a new Chrome window is launched and we wait for the port.
-   */
-  async launchChromeForConnector(): Promise<{
-    success: boolean;
-    alreadyRunning: boolean;
-    port: number;
-    error?: string;
-  }> {
-    const port = 9222;
-
-    // Reuse an already-running debugging instance if present.
-    if (await this.isChromeDebugPortReady()) {
-      log('[MCPManager] Chrome debug port already running; reusing existing instance');
-      return { success: true, alreadyRunning: true, port };
-    }
-
-    try {
-      await this.startChromeWithDebugging();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logError(`[MCPManager] Failed to launch Chrome for connector: ${message}`);
-      return { success: false, alreadyRunning: false, port, error: message };
-    }
-
-    // Wait for the debugging port to become reachable.
-    const ready = await this.waitForChromeDebugPort(15, 1000);
-    if (!ready) {
-      return {
-        success: false,
-        alreadyRunning: false,
-        port,
-        error: 'Chrome started but the debugging port did not become ready in time.',
-      };
-    }
-
-    return { success: true, alreadyRunning: false, port };
-  }
-
-  /**
    * Disconnect from a specific server
    */
   async disconnectServer(serverId: string): Promise<void> {
