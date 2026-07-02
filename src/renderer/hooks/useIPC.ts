@@ -120,7 +120,10 @@ export function useIPC() {
       const isInitialConfigStatus = !store.hasSeenInitialConfigStatus;
       store.setIsConfigured(isConfigured);
       store.setAppConfig(config);
-      store.setSettings({ theme: config.theme || 'light' });
+      store.setSettings({
+        theme: config.theme || 'light',
+        bypassApprovals: Boolean(config.bypassApprovals),
+      });
       if (isInitialConfigStatus) {
         store.markInitialConfigStatusSeen();
       }
@@ -352,10 +355,10 @@ export function useIPC() {
           const latest = useAppStore.getState();
           window.electronAPI.send({
             type: 'settings.update',
-            payload: { permissionRules: latest.settings.permissionRules } as Record<
-              string,
-              unknown
-            >,
+            payload: {
+              permissionRules: latest.settings.permissionRules,
+              bypassApprovals: latest.settings.bypassApprovals,
+            } as Record<string, unknown>,
           });
         } catch (syncErr) {
           console.warn('[useIPC] Failed to sync permissionRules to main:', syncErr);

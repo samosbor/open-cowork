@@ -31,6 +31,9 @@ const VALID_ACTIONS: ReadonlySet<PermissionRule['action']> = new Set(['allow', '
 
 let rules: PermissionRule[] = [...DEFAULT_RULES];
 
+/** Global bypass switch: when enabled, all tool calls are auto-allowed. */
+let bypassApprovals = false;
+
 /** Session-scoped "always allow" decisions, keyed by sessionId → set of lowercase tool names. */
 const alwaysAllowBySession = new Map<string, Set<string>>();
 
@@ -91,6 +94,8 @@ export function decidePermission(
   toolName: string,
   input: Record<string, unknown>
 ): 'allow' | 'deny' | 'ask' {
+  if (bypassApprovals) return 'allow';
+
   const lowered = toolName.toLowerCase();
 
   const session = alwaysAllowBySession.get(sessionId);
@@ -104,6 +109,14 @@ export function decidePermission(
     return VALID_ACTIONS.has(rule.action) ? rule.action : 'ask';
   }
   return 'ask';
+}
+
+export function setApprovalBypass(enabled: boolean): void {
+  bypassApprovals = enabled;
+}
+
+export function isApprovalBypassEnabled(): boolean {
+  return bypassApprovals;
 }
 
 export function rememberAlwaysAllow(sessionId: string, toolName: string): void {

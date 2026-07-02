@@ -53,6 +53,7 @@ function makeConfig(timeoutMs: number): AppConfig {
       promptIterationRounds: 2,
     },
     enableThinking: false,
+    bypassApprovals: false,
     isConfigured: true,
   };
 }

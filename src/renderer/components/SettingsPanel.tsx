@@ -164,7 +164,7 @@ export function SettingsPanel({ onClose, initialTab = 'api' }: SettingsPanelProp
     <div className="flex h-full w-full overflow-hidden bg-background">
       {/* Sidebar */}
       <div
-        className={`${compactSidebar ? 'w-14' : 'w-52 lg:w-60'} bg-background-secondary/88 border-r border-border-muted flex flex-col flex-shrink-0`}
+        className={`${compactSidebar ? 'w-14' : 'w-52 lg:w-60'} min-h-0 bg-background-secondary/88 border-r border-border-muted flex flex-col flex-shrink-0`}
       >
         {!compactSidebar && (
           <div className="px-4 pt-5 pb-4 border-b border-border-muted">
@@ -177,7 +177,9 @@ export function SettingsPanel({ onClose, initialTab = 'api' }: SettingsPanelProp
             <p className="mt-1 text-[11px] leading-4 text-text-muted">{t('settings.panelDesc')}</p>
           </div>
         )}
-        <div className={`flex-1 ${compactSidebar ? 'p-1.5 space-y-1' : 'p-3 space-y-1.5'}`}>
+        <div
+          className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${compactSidebar ? 'p-1.5 space-y-1' : 'p-3 space-y-1.5'}`}
+        >
           {tabs.map((tab) => (
             <button
               key={tab.id}

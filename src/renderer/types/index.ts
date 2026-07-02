@@ -551,6 +551,7 @@ export interface Settings {
   apiKey?: string;
   defaultTools: string[];
   permissionRules: PermissionRule[];
+  bypassApprovals: boolean;
   globalSkillsPath: string;
   memoryStrategy: 'auto' | 'manual' | 'rolling';
   maxContextTokens: number;
@@ -658,6 +659,7 @@ export interface AppConfig {
   memoryEnabled?: boolean;
   memoryRuntime?: MemoryRuntimeConfig;
   enableThinking?: boolean;
+  bypassApprovals?: boolean;
   isConfigured: boolean;
 }
 

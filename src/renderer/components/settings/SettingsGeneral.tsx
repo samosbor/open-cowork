@@ -71,6 +71,32 @@ export function SettingsGeneral() {
         </div>
       </div>
 
+      {/* Approvals */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium text-text-primary">{t('general.approvals')}</h4>
+        <button
+          type="button"
+          onClick={() => updateSettings({ bypassApprovals: !settings.bypassApprovals })}
+          className="w-full flex items-center justify-between p-3 rounded-lg border border-border bg-surface hover:bg-surface-hover transition-colors"
+        >
+          <div className="text-left">
+            <p className="text-sm font-medium text-text-primary">{t('general.bypassApprovals')}</p>
+            <p className="text-xs text-text-muted mt-1">{t('general.bypassApprovalsDesc')}</p>
+          </div>
+          <div
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              settings.bypassApprovals ? 'bg-warning' : 'bg-surface-active'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                settings.bypassApprovals ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </div>
+        </button>
+      </div>
+
       {/* About */}
       {appVer && (
         <div className="pt-4 border-t border-border">

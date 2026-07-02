@@ -76,7 +76,10 @@
     "themeLight": "浅色",
     "themeDark": "深色",
     "themeSystem": "跟随系统",
-    "language": "语言"
+    "language": "语言",
+    "approvals": "授权",
+    "bypassApprovals": "跳过所有授权确认",
+    "bypassApprovalsDesc": "自动允许所有工具、技能和 MCP 操作，不再弹出确认。请谨慎使用。"
   },
   "memory": {
     "title": "Memory 机制",

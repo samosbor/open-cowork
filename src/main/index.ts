@@ -34,7 +34,7 @@ import {
 } from './config/config-store';
 import { runConfigApiTest } from './config/config-test-routing';
 import { listOllamaModels } from './config/ollama-api';
-import { setPermissionRules } from './config/permission-rules-store';
+import { setPermissionRules, setApprovalBypass } from './config/permission-rules-store';
 import { mcpConfigStore } from './mcp/mcp-config-store';
 import { getSandboxAdapter, shutdownSandbox } from './sandbox/sandbox-adapter';
 import { SandboxSync } from './sandbox/sandbox-sync';
@@ -106,6 +106,8 @@ if (configStore.isConfigured()) {
   log('[Config] Applying saved configuration...');
   configStore.applyToEnv();
 }
+
+setApprovalBypass(configStore.get('bypassApprovals'));
 
 // Disable hardware acceleration for better compatibility
 app.disableHardwareAcceleration();
@@ -2772,6 +2774,12 @@ async function handleClientEvent(event: ClientEvent): Promise<unknown> {
     }
 
     case 'settings.update':
+      if (typeof event.payload.bypassApprovals === 'boolean') {
+        const bypassApprovals = event.payload.bypassApprovals as boolean;
+        configStore.update({ bypassApprovals });
+        setApprovalBypass(bypassApprovals);
+      }
+
       if (
         event.payload.theme === 'dark' ||
         event.payload.theme === 'light' ||

@@ -123,6 +123,8 @@ export interface AppConfig {
 
   // Enable thinking mode (show thinking steps)
   enableThinking: boolean;
+  // Bypass runtime tool approval prompts
+  bypassApprovals: boolean;
 
   // First run flag
   isConfigured: boolean;
@@ -170,6 +172,7 @@ const DIRECT_READ_KEYS = new Set<keyof AppConfig>([
   'sandboxEnabled',
   'memoryEnabled',
   'enableThinking',
+  'bypassApprovals',
   'isConfigured',
 ]);
 
@@ -275,6 +278,7 @@ const defaultConfig: AppConfig = {
     promptIterationRounds: 2,
   },
   enableThinking: false,
+  bypassApprovals: false,
   isConfigured: false,
 };
 
@@ -978,6 +982,7 @@ export class ConfigStore {
       memoryEnabled: toBoolean(raw.memoryEnabled, defaultConfig.memoryEnabled),
       memoryRuntime: normalizeMemoryRuntimeConfig(raw.memoryRuntime),
       enableThinking: projected.enableThinking,
+      bypassApprovals: toBoolean(raw.bypassApprovals, defaultConfig.bypassApprovals),
       isConfigured: toBoolean(raw.isConfigured, defaultConfig.isConfigured),
     };
     this.normalizeModelIds(result);
@@ -1118,6 +1123,7 @@ export class ConfigStore {
             key === 'sandboxEnabled' ||
             key === 'memoryEnabled' ||
             key === 'enableThinking' ||
+            key === 'bypassApprovals' ||
             key === 'isConfigured') &&
           typeof rawValue !== 'boolean'
         ) {
