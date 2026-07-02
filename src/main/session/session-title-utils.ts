@@ -30,7 +30,7 @@ export function getEnglishDefaultTitleFromPrompt(prompt: string): string {
   }
 
   const englishOnly = trimmed
-    .replace(/[^\x00-\x7f]+/g, ' ')
+    .replace(/[^ -~]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -38,7 +38,7 @@ export function getEnglishDefaultTitleFromPrompt(prompt: string): string {
     return DEFAULT_SESSION_TITLE;
   }
 
-  if (/[^\x00-\x7f]/.test(trimmed) && englishOnly.split(' ').length < 2) {
+  if (/[^ -~]/.test(trimmed) && englishOnly.split(' ').length < 2) {
     return DEFAULT_SESSION_TITLE;
   }
 
