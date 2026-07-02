@@ -250,6 +250,12 @@ export function ChatView() {
     textareaRef.current?.focus();
   }, [activeSessionId]);
 
+  useEffect(() => {
+    if (!isSubmitting) {
+      textareaRef.current?.focus();
+    }
+  }, [isSubmitting]);
+
   // When switching to a chat from the sidebar, jump to the bottom so the most
   // recent messages are visible (instead of starting scrolled to the top).
   // Because the new session's messages load asynchronously, we arm a flag on
