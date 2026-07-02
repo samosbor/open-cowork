@@ -15,6 +15,13 @@ describe('session title flow', () => {
     expect(harness.hasAttempted).toBe(false);
   });
 
+  it('falls back to an English title when englishOnly is enabled', async () => {
+    const harness = createTitleFlowHarness({ generatedTitle: null, englishOnly: true });
+    await harness.runFirstMessage('帮我做一个PPT');
+    expect(harness.updatedTitle).toBe('New Session');
+    expect(harness.hasAttempted).toBe(true);
+  });
+
   it('does not override manual title changes', async () => {
     const harness = createTitleFlowHarness({
       generatedTitle: '简短标题',

@@ -1,4 +1,6 @@
-import { getDefaultTitleFromPrompt } from '../../src/main/session/session-title-utils';
+import {
+  getDefaultTitleFromPrompt,
+} from '../../src/main/session/session-title-utils';
 import { maybeGenerateSessionTitle } from '../../src/main/session/session-title-flow';
 
 type HarnessOptions = {
@@ -6,6 +8,7 @@ type HarnessOptions = {
   latestTitle?: string;
   /** Controls what updateTitle returns; defaults to true */
   updateTitleResult?: boolean;
+  englishOnly?: boolean;
 };
 
 export function createTitleFlowHarness(options: HarnessOptions) {
@@ -15,6 +18,7 @@ export function createTitleFlowHarness(options: HarnessOptions) {
   const attemptedSessions = new Set<string>();
   const sessionId = 'session-1';
   const updateTitleResult = options.updateTitleResult ?? true;
+  const englishOnly = options.englishOnly ?? false;
 
   const runFirstMessage = async (prompt: string) => {
     currentTitle = getDefaultTitleFromPrompt(prompt);
@@ -24,6 +28,7 @@ export function createTitleFlowHarness(options: HarnessOptions) {
       userMessageCount: 1,
       currentTitle,
       hasAttempted: attemptedSessions.has(sessionId),
+      englishOnly,
       generateTitle: async () => options.generatedTitle,
       getLatestTitle: () => latestTitle ?? currentTitle,
       markAttempt: () => {

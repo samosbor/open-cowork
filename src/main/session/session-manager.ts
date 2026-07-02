@@ -35,6 +35,7 @@ import {
 import { SandboxSync } from '../sandbox/sandbox-sync';
 import { ClaudeAgentRunner } from '../claude/agent-runner';
 import { configStore } from '../config/config-store';
+import { isOpenAIProvider } from '../config/auth-utils';
 import { MCPManager } from '../mcp/mcp-manager';
 import { mcpConfigStore } from '../mcp/mcp-config-store';
 import { PluginRuntimeService } from '../skills/plugin-runtime-service';
@@ -52,8 +53,10 @@ import {
 import { maybeGenerateSessionTitle } from './session-title-flow';
 import {
   buildTitlePrompt,
+  getEnglishDefaultTitleFromPrompt,
   getDefaultTitleFromPrompt,
   normalizeGeneratedTitle,
+  shouldForceEnglishTitles,
 } from './session-title-utils';
 import { generateTitleWithClaudeSdk } from '../claude/claude-sdk-one-shot';
 import { buildScheduledTaskTitle } from '../../shared/schedule/task-title';
@@ -429,13 +432,22 @@ export class SessionManager {
       return 'New Session';
     }
 
+    const config = configStore.getAll();
+    const englishOnly =
+      isOpenAIProvider(config) && shouldForceEnglishTitles(config.provider, config.model);
+
     const generated = await this.withTimeout(
-      this.generateTitleWithConfig(buildTitlePrompt(normalizedPrompt)),
+      this.generateTitleWithConfig(buildTitlePrompt(normalizedPrompt, { englishOnly })),
       TITLE_GENERATION_TIMEOUT_MS,
       'session-title-preview'
     );
-    const normalizedGenerated = normalizeGeneratedTitle(generated);
-    return normalizedGenerated ?? getDefaultTitleFromPrompt(normalizedPrompt);
+    const normalizedGenerated = normalizeGeneratedTitle(generated, { englishOnly });
+    return (
+      normalizedGenerated ??
+      (englishOnly
+        ? getEnglishDefaultTitleFromPrompt(normalizedPrompt)
+        : getDefaultTitleFromPrompt(normalizedPrompt))
+    );
   }
 
   async generateScheduledTaskTitle(prompt: string): Promise<string> {
@@ -763,12 +775,17 @@ export class SessionManager {
     const userMessageCount =
       existingMessages.filter((message) => message.role === 'user').length + 1;
     try {
+      const config = configStore.getAll();
+      const englishOnly =
+        isOpenAIProvider(config) && shouldForceEnglishTitles(config.provider, config.model);
+
       await maybeGenerateSessionTitle({
         sessionId: session.id,
         prompt,
         userMessageCount,
         currentTitle: session.title,
         hasAttempted: this.sessionTitleAttempts.has(session.id),
+        englishOnly,
         generateTitle: async (titlePrompt) => {
           if (shouldAbort()) {
             return null;

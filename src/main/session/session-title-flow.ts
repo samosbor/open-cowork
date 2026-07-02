@@ -1,5 +1,6 @@
 import {
   buildTitlePrompt,
+  getEnglishDefaultTitleFromPrompt,
   getDefaultTitleFromPrompt,
   normalizeGeneratedTitle,
   shouldGenerateTitle,
@@ -15,6 +16,7 @@ type TitleFlowDeps = {
   updateTitle: (title: string) => Promise<boolean> | boolean;
   getLatestTitle: () => string | null;
   markAttempt: () => void;
+  englishOnly?: boolean;
   shouldAbort?: () => boolean;
   log: (message: string, ...args: unknown[]) => void;
 };
@@ -46,10 +48,12 @@ export async function maybeGenerateSessionTitle(deps: TitleFlowDeps): Promise<vo
 
   deps.log('[SessionTitle] Generating title...', deps.sessionId);
 
-  const titlePrompt = buildTitlePrompt(deps.prompt);
+  const titlePrompt = buildTitlePrompt(deps.prompt, { englishOnly: deps.englishOnly });
   let generatedTitle: string | null = null;
   try {
-    generatedTitle = normalizeGeneratedTitle(await deps.generateTitle(titlePrompt));
+    generatedTitle = normalizeGeneratedTitle(await deps.generateTitle(titlePrompt), {
+      englishOnly: deps.englishOnly,
+    });
   } catch (error) {
     deps.log('[SessionTitle] Generation failed', deps.sessionId, error);
     return;
@@ -58,6 +62,10 @@ export async function maybeGenerateSessionTitle(deps: TitleFlowDeps): Promise<vo
   if (deps.shouldAbort?.()) {
     deps.log('[SessionTitle] Skip: title flow aborted after generation', deps.sessionId);
     return;
+  }
+
+  if (!generatedTitle && deps.englishOnly) {
+    generatedTitle = getEnglishDefaultTitleFromPrompt(deps.prompt);
   }
 
   if (!generatedTitle) {

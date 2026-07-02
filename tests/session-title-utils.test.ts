@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildTitlePrompt,
+  getEnglishDefaultTitleFromPrompt,
   normalizeGeneratedTitle,
   shouldGenerateTitle,
 } from '../src/main/session/session-title-utils';
@@ -53,6 +54,20 @@ describe('session title utils', () => {
     expect(prompt).toContain('15');
     expect(prompt).toContain('同语言');
     expect(prompt).toContain('same language');
+  });
+
+  it('builds an English-only prompt when requested', () => {
+    const prompt = buildTitlePrompt('帮我做一个PPT', { englishOnly: true });
+    expect(prompt).toContain('English only');
+    expect(prompt).not.toContain('同语言');
+    expect(prompt).not.toContain('用户请求');
+  });
+
+  it('falls back to an English default title for non-English prompts', () => {
+    expect(getEnglishDefaultTitleFromPrompt('帮我做一个PPT')).toBe('New Session');
+    expect(getEnglishDefaultTitleFromPrompt('Build an agent workspace')).toBe(
+      'Build an agent workspace'
+    );
   });
 
   it('normalizes generated title by taking first line and stripping quotes', () => {
