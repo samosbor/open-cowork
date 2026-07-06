@@ -15,7 +15,7 @@ export type TitlePromptOptions = {
 export type TitleLanguagePolicyInput = {
   provider: string;
   customProtocol?: string;
-  model: string;
+  model?: string;
 };
 
 export function shouldGenerateTitle(input: TitleDecisionInput): boolean {
@@ -80,6 +80,9 @@ function isOpenAIStyleProvider(provider: string, customProtocol?: string): boole
 }
 
 function isOpenAIFamilyModel(model: string): boolean {
+  if (!model) {
+    return false;
+  }
   const normalized = model.trim().toLowerCase();
   if (!normalized) {
     return false;
