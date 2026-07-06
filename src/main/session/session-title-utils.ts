@@ -15,7 +15,7 @@ export type TitlePromptOptions = {
 export type TitleLanguagePolicyInput = {
   provider: string;
   customProtocol?: string;
-  model: string;
+  model?: string;
 };
 
 export function shouldGenerateTitle(input: TitleDecisionInput): boolean {
