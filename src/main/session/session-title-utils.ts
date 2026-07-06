@@ -80,6 +80,9 @@ function isOpenAIStyleProvider(provider: string, customProtocol?: string): boole
 }
 
 function isOpenAIFamilyModel(model: string): boolean {
+  if (!model) {
+    return false;
+  }
   const normalized = model.trim().toLowerCase();
   if (!normalized) {
     return false;
