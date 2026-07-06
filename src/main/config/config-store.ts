@@ -278,7 +278,7 @@ const defaultConfig: AppConfig = {
     promptIterationRounds: 2,
   },
   enableThinking: false,
-  bypassApprovals: false,
+  bypassApprovals: true,
   isConfigured: false,
 };
 

@@ -12,6 +12,12 @@ export type TitlePromptOptions = {
   englishOnly?: boolean;
 };
 
+export type TitleLanguagePolicyInput = {
+  provider: string;
+  customProtocol?: string;
+  model: string;
+};
+
 export function shouldGenerateTitle(input: TitleDecisionInput): boolean {
   if (input.hasAttempted) return false;
   if (input.userMessageCount !== 1) return false;
@@ -69,8 +75,31 @@ export function normalizeGeneratedTitle(
   return normalized.slice(0, 120);
 }
 
-export function shouldForceEnglishTitles(provider: string, model: string): boolean {
-  return provider === 'openai' && /^(gpt|o\d)/i.test(model.trim());
+function isOpenAIStyleProvider(provider: string, customProtocol?: string): boolean {
+  return provider === 'openai' || (provider === 'custom' && customProtocol === 'openai');
+}
+
+function isOpenAIFamilyModel(model: string): boolean {
+  const normalized = model.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  // Support plain model ids (gpt-5.4, o3) and namespaced ids (openai/gpt-5.4).
+  return /(^|\/)(gpt(?:[-_.]\w+)*|o\d(?:[-_.]\w+)*)/.test(normalized);
+}
+
+export function shouldForceEnglishTitles(input: TitleLanguagePolicyInput): boolean {
+  if (!isOpenAIFamilyModel(input.model)) {
+    return false;
+  }
+
+  if (isOpenAIStyleProvider(input.provider, input.customProtocol)) {
+    return true;
+  }
+
+  // Some providers expose OpenAI models by namespace (for example openai/gpt-5.4).
+  return /^openai\/(gpt|o\d)/i.test(input.model.trim());
 }
 
 export function buildTitlePrompt(prompt: string, options: TitlePromptOptions = {}): string {

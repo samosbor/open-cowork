@@ -3,6 +3,7 @@ import {
   buildTitlePrompt,
   getEnglishDefaultTitleFromPrompt,
   normalizeGeneratedTitle,
+  shouldForceEnglishTitles,
   shouldGenerateTitle,
 } from '../src/main/session/session-title-utils';
 
@@ -68,6 +69,34 @@ describe('session title utils', () => {
     expect(getEnglishDefaultTitleFromPrompt('Build an agent workspace')).toBe(
       'Build an agent workspace'
     );
+  });
+
+  it('forces english titles for OpenAI GPT model variants', () => {
+    expect(
+      shouldForceEnglishTitles({ provider: 'openai', model: 'gpt-5.4', customProtocol: 'openai' })
+    ).toBe(true);
+
+    expect(
+      shouldForceEnglishTitles({
+        provider: 'custom',
+        customProtocol: 'openai',
+        model: 'openai/gpt-5.4',
+      })
+    ).toBe(true);
+
+    expect(
+      shouldForceEnglishTitles({
+        provider: 'openrouter',
+        model: 'openai/gpt-5.4',
+      })
+    ).toBe(true);
+
+    expect(
+      shouldForceEnglishTitles({
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+      })
+    ).toBe(false);
   });
 
   it('normalizes generated title by taking first line and stripping quotes', () => {

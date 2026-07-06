@@ -35,7 +35,6 @@ import {
 import { SandboxSync } from '../sandbox/sandbox-sync';
 import { ClaudeAgentRunner } from '../claude/agent-runner';
 import { configStore } from '../config/config-store';
-import { isOpenAIProvider } from '../config/auth-utils';
 import { MCPManager } from '../mcp/mcp-manager';
 import { mcpConfigStore } from '../mcp/mcp-config-store';
 import { PluginRuntimeService } from '../skills/plugin-runtime-service';
@@ -433,8 +432,11 @@ export class SessionManager {
     }
 
     const config = configStore.getAll();
-    const englishOnly =
-      isOpenAIProvider(config) && shouldForceEnglishTitles(config.provider, config.model);
+    const englishOnly = shouldForceEnglishTitles({
+      provider: config.provider,
+      customProtocol: config.customProtocol,
+      model: config.model,
+    });
 
     const generated = await this.withTimeout(
       this.generateTitleWithConfig(buildTitlePrompt(normalizedPrompt, { englishOnly })),
@@ -776,8 +778,11 @@ export class SessionManager {
       existingMessages.filter((message) => message.role === 'user').length + 1;
     try {
       const config = configStore.getAll();
-      const englishOnly =
-        isOpenAIProvider(config) && shouldForceEnglishTitles(config.provider, config.model);
+      const englishOnly = shouldForceEnglishTitles({
+        provider: config.provider,
+        customProtocol: config.customProtocol,
+        model: config.model,
+      });
 
       await maybeGenerateSessionTitle({
         sessionId: session.id,

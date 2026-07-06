@@ -212,7 +212,7 @@ const defaultSettings: Settings = {
     { tool: 'edit', action: 'ask' },
     { tool: 'bash', action: 'ask' },
   ],
-  bypassApprovals: false,
+  bypassApprovals: true,
   globalSkillsPath: '',
   memoryStrategy: 'auto',
   maxContextTokens: 180000,
