@@ -15,7 +15,7 @@ export type TitlePromptOptions = {
 export type TitleLanguagePolicyInput = {
   provider: string;
   customProtocol?: string;
-  model: string;
+  model?: string;
 };
 
 export function shouldGenerateTitle(input: TitleDecisionInput): boolean {
@@ -79,8 +79,8 @@ function isOpenAIStyleProvider(provider: string, customProtocol?: string): boole
   return provider === 'openai' || (provider === 'custom' && customProtocol === 'openai');
 }
 
-function isOpenAIFamilyModel(model: string): boolean {
-  const normalized = model.trim().toLowerCase();
+function isOpenAIFamilyModel(model?: string): boolean {
+  const normalized = (model ?? '').trim().toLowerCase();
   if (!normalized) {
     return false;
   }
@@ -99,7 +99,7 @@ export function shouldForceEnglishTitles(input: TitleLanguagePolicyInput): boole
   }
 
   // Some providers expose OpenAI models by namespace (for example openai/gpt-5.4).
-  return /^openai\/(gpt|o\d)/i.test(input.model.trim());
+  return /^openai\/(gpt|o\d)/i.test((input.model ?? '').trim());
 }
 
 export function buildTitlePrompt(prompt: string, options: TitlePromptOptions = {}): string {
