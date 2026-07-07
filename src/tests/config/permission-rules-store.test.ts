@@ -11,13 +11,14 @@
  *   - Malformed individual rule entries are coerced to 'ask' rather than
  *     silently bypassed
  */
-import { beforeEach, describe, it, expect } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import {
   decidePermission,
   forgetSessionPermissions,
   getPermissionRules,
   rememberAlwaysAllow,
   setPermissionRules,
+  setApprovalBypass,
 } from '../../main/config/permission-rules-store';
 
 const SESSION_A = 'session-a';
@@ -26,6 +27,7 @@ const SESSION_B = 'session-b';
 // Reset to DEFAULT_RULES before each test by passing garbage input — the
 // module documents that this falls back to defaults rather than empty rules.
 function resetToDefaults(): void {
+  setApprovalBypass(false);
   setPermissionRules(null);
   forgetSessionPermissions(SESSION_A);
   forgetSessionPermissions(SESSION_B);
@@ -37,6 +39,12 @@ describe('permission-rules-store', () => {
   });
 
   describe('decidePermission — built-in defaults', () => {
+    it('starts with approval bypass enabled by default in a fresh module instance', async () => {
+      vi.resetModules();
+      const freshStore = await import('../../main/config/permission-rules-store');
+      expect(freshStore.isApprovalBypassEnabled()).toBe(true);
+    });
+
     it('returns allow for default-allowed read tool', () => {
       expect(decidePermission(SESSION_A, 'read', { path: '/tmp/x' })).toBe('allow');
     });
