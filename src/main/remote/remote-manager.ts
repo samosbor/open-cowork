@@ -716,14 +716,14 @@ export class RemoteManager extends EventEmitter {
           lowerResponse === 'y' ||
           lowerResponse === 'yes' ||
           // Legacy Chinese keywords kept for backward compatibility
-          lowerResponse === '允许' ||
-          lowerResponse === '是'
+          lowerResponse === 'allow' ||
+          lowerResponse === 'yes'
         ) {
           resolve({ allow: true });
         } else if (
           lowerResponse === 'always allow' ||
           lowerResponse === 'always' ||
-          lowerResponse === '始终允许'
+          lowerResponse === 'always allow'
         ) {
           resolve({ allow: true, remember: true });
         } else {
@@ -832,7 +832,7 @@ export class RemoteManager extends EventEmitter {
     // Handle "skip" response (accept the legacy Chinese keyword too)
     if (
       messageText.toLowerCase().trim() === 'skip' ||
-      messageText.trim() === '跳过'
+      messageText.trim() === 'skip'
     ) {
       return '{}';
     }

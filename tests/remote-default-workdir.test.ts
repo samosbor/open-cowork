@@ -22,7 +22,7 @@ const buildMessage = (): RemoteMessage => ({
   channelType: 'telegram',
   channelId: 'channel-1',
   sender: { id: 'user-1', isBot: false },
-  content: { type: 'text', text: '你好' },
+  content: { type: 'text', text: 'hello' },
   timestamp: Date.now(),
   isGroup: false,
   isMentioned: false,

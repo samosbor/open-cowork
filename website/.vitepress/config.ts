@@ -206,17 +206,17 @@ export default defineConfig({
       lang: 'en',
     },
     zh: {
-      label: '中文',
+      label: 'Chinese',
       lang: 'zh-CN',
-      description: '免费开源的 AI 智能助手桌面应用，支持 Windows 和 macOS 一键安装。',
+      description: 'Free and open-source AI assistant desktop app with one-click install for Windows and macOS.',
       themeConfig: {
         nav: [
-          { text: '首页', link: '/zh/' },
-          { text: '下载', link: 'https://github.com/OpenCoworkAI/open-cowork/releases' },
+          { text: 'Home', link: '/zh/' },
+          { text: 'Download', link: 'https://github.com/OpenCoworkAI/open-cowork/releases' },
           { text: 'GitHub', link: 'https://github.com/OpenCoworkAI/open-cowork' },
         ],
         footer: {
-          message: '基于 MIT 协议开源。',
+          message: 'Released under the MIT License.',
           copyright: '© 2025-present OpenCoworkAI',
         },
       },

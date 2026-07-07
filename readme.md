@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="./README_zh.md">中文文档</a> •
+  <a href="./README_zh.md">Chinese Docs</a> •
   <a href="#features">Features</a> •
   <a href="#demo">Demo</a> •
   <a href="#installation">Downloads</a> •
@@ -22,7 +22,7 @@
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/Node.js-18+-brightgreen" alt="Node.js" />
   <a href="https://discord.gg/pynjtQDf"><img src="https://img.shields.io/discord/1493588403260883078?logo=discord&label=Discord&color=5865F2" alt="Discord" /></a>
-  <a href="#community"><img src="https://img.shields.io/badge/WeChat-微信群-07C160?logo=wechat&logoColor=white" alt="WeChat" /></a>
+  <a href="#community"><img src="https://img.shields.io/badge/WeChat-Group-07C160?logo=wechat&logoColor=white" alt="WeChat" /></a>
 </p>
 
 ---

@@ -51,21 +51,21 @@ describe('session title utils', () => {
   });
 
   it('builds a bilingual prompt requiring <=15 chars and same language', () => {
-    const prompt = buildTitlePrompt('帮我做一个PPT');
+    const prompt = buildTitlePrompt('Help me make a PPT');
     expect(prompt).toContain('15');
-    expect(prompt).toContain('同语言');
+    expect(prompt).toContain('same language');
     expect(prompt).toContain('same language');
   });
 
   it('builds an English-only prompt when requested', () => {
-    const prompt = buildTitlePrompt('帮我做一个PPT', { englishOnly: true });
+    const prompt = buildTitlePrompt('Help me make a PPT', { englishOnly: true });
     expect(prompt).toContain('English only');
-    expect(prompt).not.toContain('同语言');
-    expect(prompt).not.toContain('用户请求');
+    expect(prompt).not.toContain('same language');
+    expect(prompt).toContain('User request:');
   });
 
   it('falls back to an English default title for non-English prompts', () => {
-    expect(getEnglishDefaultTitleFromPrompt('帮我做一个PPT')).toBe('New Session');
+    expect(getEnglishDefaultTitleFromPrompt('Привет')).toBe('New Session');
     expect(getEnglishDefaultTitleFromPrompt('Build an agent workspace')).toBe(
       'Build an agent workspace'
     );
@@ -100,8 +100,8 @@ describe('session title utils', () => {
   });
 
   it('normalizes generated title by taking first line and stripping quotes', () => {
-    const title = normalizeGeneratedTitle('"  我的标题  "\n第二行');
-    expect(title).toBe('我的标题');
+    const title = normalizeGeneratedTitle('"  My title  "\nSecond line');
+    expect(title).toBe('My title');
   });
 
   it('drops synthetic empty placeholder titles', () => {

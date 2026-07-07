@@ -3,40 +3,40 @@ import { splitTextByFileMentions, getFileLinkButtonClassName, splitChildrenByFil
 
 describe('splitTextByFileMentions', () => {
   it('detects bare filenames with extension', () => {
-    const input = '打开 示例文档.txt 查看';
+    const input = 'Open sample-document.txt to view';
     const parts = splitTextByFileMentions(input);
     expect(parts).toEqual([
-      { type: 'text', value: '打开 ' },
-      { type: 'file', value: '示例文档.txt' },
-      { type: 'text', value: ' 查看' },
+      { type: 'text', value: 'Open ' },
+      { type: 'file', value: 'sample-document.txt' },
+      { type: 'text', value: ' to view' },
     ]);
   });
 
   it('detects Chinese filenames at the start of a line', () => {
-    const input = '简单销售报告.xlsx - 生成的Excel文件';
+    const input = 'simple-sales-report.xlsx - generated Excel file';
     const parts = splitTextByFileMentions(input);
     expect(parts).toEqual([
-      { type: 'file', value: '简单销售报告.xlsx' },
-      { type: 'text', value: ' - 生成的Excel文件' },
+      { type: 'file', value: 'simple-sales-report.xlsx' },
+      { type: 'text', value: ' - generated Excel file' },
     ]);
   });
 
   it('detects absolute paths', () => {
-    const input = '路径 /Users/haoqing/test/报告.docx 已生成';
+    const input = 'Path /Users/haoqing/test/report.docx generated';
     const parts = splitTextByFileMentions(input);
     expect(parts).toEqual([
-      { type: 'text', value: '路径 ' },
-      { type: 'file', value: '/Users/haoqing/test/报告.docx' },
-      { type: 'text', value: ' 已生成' },
+      { type: 'text', value: 'Path ' },
+      { type: 'file', value: '/Users/haoqing/test/report.docx' },
+      { type: 'text', value: ' generated' },
     ]);
   });
 
   it('detects absolute paths with spaces', () => {
-    const input = '文档已保存为：/Users/haoqing/Library/Application Support/open-cowork/default_working_dir/word-document/示例文档.docx';
+    const input = 'Document saved as: /Users/haoqing/Library/Application Support/open-cowork/default_working_dir/word-document/sample-document.docx';
     const parts = splitTextByFileMentions(input);
     expect(parts).toEqual([
-      { type: 'text', value: '文档已保存为：' },
-      { type: 'file', value: '/Users/haoqing/Library/Application Support/open-cowork/default_working_dir/word-document/示例文档.docx' },
+      { type: 'text', value: 'Document saved as: ' },
+      { type: 'file', value: '/Users/haoqing/Library/Application Support/open-cowork/default_working_dir/word-document/sample-document.docx' },
     ]);
   });
 
@@ -62,48 +62,54 @@ describe('splitTextByFileMentions', () => {
 
   it('detects bare Chinese filename after descriptive paragraph', () => {
     const input = [
-      '已创建 Word 文档，内容为“北京未来一个月天气介绍”（含趋势、气温体感、降水风力、生活建议等）：',
+      'Created a Word document with content "Beijing weather outlook for the next month" (including trends, feels-like temperature, precipitation and wind, and daily-life suggestions):',
       '',
-      '北京未来一个月天气介绍.docx',
+      'beijing-weather-next-month.docx',
     ].join('\n');
     const parts = splitTextByFileMentions(input);
     expect(parts).toEqual([
       {
         type: 'text',
-        value: '已创建 Word 文档，内容为“北京未来一个月天气介绍”（含趋势、气温体感、降水风力、生活建议等）：\n\n',
+        value: 'Created a Word document with content "Beijing weather outlook for the next month" (including trends, feels-like temperature, precipitation and wind, and daily-life suggestions):\n\n',
       },
-      { type: 'file', value: '北京未来一个月天气介绍.docx' },
+      { type: 'file', value: 'beijing-weather-next-month.docx' },
     ]);
   });
 
   it('ignores urls', () => {
-    const input = '查看 https://example.com/demo.txt';
+    const input = 'View https://example.com/demo.txt';
     const parts = splitTextByFileMentions(input);
     expect(parts).toEqual([{ type: 'text', value: input }]);
   });
 
   it('ignores file URLs instead of turning them into broken file buttons', () => {
-    const input = '查看 file:///C:/Users/demo/report.txt';
+    const input = 'View file:///C:/Users/demo/report.txt';
     const parts = splitTextByFileMentions(input);
     expect(parts).toEqual([{ type: 'text', value: input }]);
   });
 
   it('ignores UNC file URLs instead of splitting out the trailing filename', () => {
-    const input = '查看 file://server/share/report.txt';
+    const input = 'View file://server/share/report.txt';
     const parts = splitTextByFileMentions(input);
     expect(parts).toEqual([{ type: 'text', value: input }]);
   });
 
   it('does not treat numeric dimensions as filenames', () => {
-    const input = 'HTML尺寸应该是10.0" × 5.6" (16:9比例)。';
+    const input = 'HTML size should be 10.0" × 5.6" (16:9 ratio).';
     const parts = splitTextByFileMentions(input);
     expect(parts).toEqual([{ type: 'text', value: input }]);
   });
 
-  it('ignores filenames embedded in Chinese sentences without boundaries', () => {
-    const input = '我看到已经有一个slide1.html文件了。让我创建其他幻灯片文件。先创建slide2.html:';
+  it('detects filenames embedded in English sentences with valid boundaries', () => {
+    const input = 'I can see slide1.html already exists. Let me create other slide files. First create slide2.html:';
     const parts = splitTextByFileMentions(input);
-    expect(parts).toEqual([{ type: 'text', value: input }]);
+    expect(parts).toEqual([
+      { type: 'text', value: 'I can see ' },
+      { type: 'file', value: 'slide1.html' },
+      { type: 'text', value: ' already exists. Let me create other slide files. First create ' },
+      { type: 'file', value: 'slide2.html' },
+      { type: 'text', value: ':' },
+    ]);
   });
 
   it('provides a left-aligned file link button class', () => {
@@ -113,10 +119,10 @@ describe('splitTextByFileMentions', () => {
   });
 
   it('splits string children into file and text parts', () => {
-    const parts = splitChildrenByFileMentions(['simple.md - 描述']);
+    const parts = splitChildrenByFileMentions(['simple.md - description']);
     expect(parts).toEqual([
       { type: 'file', value: 'simple.md' },
-      { type: 'text', value: ' - 描述' },
+      { type: 'text', value: ' - description' },
     ]);
   });
 });

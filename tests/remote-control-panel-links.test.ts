@@ -15,7 +15,7 @@ const telegramStepContent = readFileSync(telegramStepPath, 'utf8');
 
 describe('RemoteControlPanel links', () => {
   it('does not show one-click permission link', () => {
-    expect(panelContent).not.toContain('一键配置权限');
+    expect(panelContent).not.toContain('One-click permission setup');
   });
 
   it('includes BotFather setup link', () => {

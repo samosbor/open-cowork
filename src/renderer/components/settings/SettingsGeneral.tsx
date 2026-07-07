@@ -20,7 +20,7 @@ export function SettingsGeneral() {
 
   const languages = [
     { code: 'en', nativeName: 'English' },
-    { code: 'zh', nativeName: '中文' },
+    { code: 'zh', nativeName: 'Chinese' },
   ];
 
   const themeOptions = [

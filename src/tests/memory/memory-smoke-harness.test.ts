@@ -83,13 +83,13 @@ class SmokeMemoryLLM implements MemoryLLMClientLike {
     if (request.systemPrompt.includes('Memory Profiler')) {
       return {
         text: JSON.stringify({
-          actions: request.userPrompt.includes('中文')
+          actions: request.userPrompt.includes('Chinese')
             ? [
                 {
                   op: 'upsert',
                   category: 'preferences',
                   key: 'response_language',
-                  value: '中文',
+                  value: 'Chinese',
                 },
               ]
             : [],
@@ -105,17 +105,17 @@ class SmokeMemoryLLM implements MemoryLLMClientLike {
       return {
         text: JSON.stringify({
           session_summary: isWorkspaceA
-            ? 'workspace A 的 gateway token rotation 经验'
-            : 'workspace B 的其他经验',
+            ? 'workspace A gateway token rotation experience'
+            : 'other experience from workspace B',
           session_keywords: isWorkspaceA ? ['gateway', 'rotation'] : ['other'],
           chunks: [
             {
               summary: isWorkspaceA
-                ? 'workspace A 中关于 gateway token rotation 的结论'
-                : 'workspace B 中不相关的总结',
+                ? 'workspace A conclusions about gateway token rotation'
+                : 'unrelated summary from workspace B',
               details: isWorkspaceA
-                ? '在 workspace A 中完成 gateway token rotation，并保留后续整理说明。'
-                : '这条记录属于另一个 workspace。',
+                ? 'Completed gateway token rotation in workspace A, with follow-up notes retained.'
+                : 'This record belongs to another workspace.',
               keywords: isWorkspaceA ? ['gateway', 'rotation'] : ['other'],
               source_turns: [1, 2, 3, 4],
             },
@@ -289,18 +289,18 @@ describe('memory smoke harness', () => {
         createdAt: 1000,
         updatedAt: 1000,
       },
-      prompt: '实现 gateway token rotation',
+      prompt: 'Implement gateway token rotation',
       messages: makeMessages('a-1', [
-        { role: 'user', text: '请用中文回答。', timestamp: 1 },
-        { role: 'assistant', text: '好的。', timestamp: 2 },
+        { role: 'user', text: 'Please reply in Chinese.', timestamp: 1 },
+        { role: 'assistant', text: 'Okay.', timestamp: 2 },
         {
           role: 'user',
-          text: '在 workspace A 里实现 gateway token rotation，并同步 remote gateway。',
+          text: 'Implement gateway token rotation in workspace A and synchronize remote gateway.',
           timestamp: 3,
         },
         {
           role: 'assistant',
-          text: '已在 workspace A 完成 gateway token rotation。',
+          text: 'Completed gateway token rotation in workspace A.',
           timestamp: 4,
         },
       ]),
@@ -318,20 +318,20 @@ describe('memory smoke harness', () => {
         createdAt: 2000,
         updatedAt: 2000,
       },
-      prompt: '记录别的事情',
+      prompt: 'Record something else',
       messages: makeMessages('b-1', [
-        { role: 'user', text: '在 workspace B 中讨论不相关的话题。', timestamp: 5 },
-        { role: 'assistant', text: '已记录。', timestamp: 6 },
+        { role: 'user', text: 'Discussed unrelated topics in workspace B.', timestamp: 5 },
+        { role: 'assistant', text: 'Recorded.', timestamp: 6 },
       ]),
     });
 
     const sameWorkspacePrompt = await service.buildPromptPrefix(
       { cwd: workspaceA },
-      '继续 gateway token rotation'
+      'Continue gateway token rotation'
     );
     const otherWorkspacePrompt = await service.buildPromptPrefix(
       { cwd: workspaceB },
-      '继续 gateway token rotation'
+      'Continue gateway token rotation'
     );
 
     expect(sameWorkspacePrompt).toContain('gateway token rotation');

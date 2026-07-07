@@ -5,9 +5,9 @@ Use this checklist with a real API key after launching the app locally.
 ## 1. Core Memory Retention
 
 1. Start a new session.
-2. Tell the agent: `请用中文回答，我叫 Jack。`
+2. Tell the agent: `Please reply in Chinese, my name is Jack.`
 3. Send one more task so the turn completes.
-4. Open `Settings -> Memory` and search `中文` with scope `仅 core memory`.
+4. Open `Settings -> Memory` and search `Chinese` with scope `core memory only`.
 5. Verify that a core memory record exists for response language and/or name.
 
 ## 2. Unified Experience Recall
@@ -18,7 +18,7 @@ Use this checklist with a real API key after launching the app locally.
 4. Start a fresh session A2 in the same workspace.
 5. Ask a follow-up question about `gateway token rotation`.
 6. Verify that the cold-start response is aware of the earlier work without you restating it.
-7. Search `gateway token rotation` in `Settings -> Memory` with scope `当前工作区`.
+7. Search `gateway token rotation` in `Settings -> Memory` with scope `current workspace`.
 
 ## 3. Cross-Workspace Recall
 
@@ -26,8 +26,8 @@ Use this checklist with a real API key after launching the app locally.
 2. Start a fresh session B1.
 3. Ask about `gateway token rotation`.
 4. Verify that memory can still recall the relevant experience from workspace `A`.
-5. Verify that the injected memory clearly标记来源 workspace，而不是假装都来自当前项目。
-6. Verify that core preferences such as `请用中文回答` still apply.
+5. Verify that the injected memory clearlymark the source workspace instead of pretending everything comes from the current project.
+6. Verify that core preferences such as `Please reply in Chinese` still apply.
 
 ## 4. Source Provenance
 
@@ -39,9 +39,9 @@ Use this checklist with a real API key after launching the app locally.
 ## 5. Maintenance Actions
 
 1. Open `Settings -> Memory`.
-2. Click `重建当前工作区`, then search again and confirm the expected source-scoped records return.
-3. Click `清空当前工作区`, then verify该来源 workspace 的搜索结果消失，而其他来源仍在。
-4. Click `清空 Core Memory`, then verify global/core search results disappear.
+2. Click `Rebuild current workspace`, then search again and confirm the expected source-scoped records return.
+3. Click `Clear current workspace`, then verify that search results from that source workspace disappear while other sources remain.
+4. Click `Clear Core Memory`, then verify global/core search results disappear.
 
 ## 6. Non-Interactive Flows
 

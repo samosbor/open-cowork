@@ -65,7 +65,7 @@ type PendingConfigSetAction = { type: 'switch'; targetSetId: string };
 const isElectron = typeof window !== 'undefined' && window.electronAPI !== undefined;
 const CONFIG_SET_LIMIT = 20;
 const DEFAULT_CONFIG_SET_ID = 'default';
-const DEFAULT_CONFIG_SET_NAME_ZH = '默认方案';
+const DEFAULT_CONFIG_SET_NAME_ZH = 'Default Set';
 export const FALLBACK_PROVIDER_PRESETS: ProviderPresets = API_PROVIDER_PRESETS;
 
 const PROFILE_KEYS: ProviderProfileKey[] = [
